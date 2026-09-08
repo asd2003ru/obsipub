@@ -1,0 +1,9 @@
+{
+  "id": "obsipub",
+  "name": "Obsipub Publisher",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Publish the active note, its dependencies, and active custom theme to obsipub.",
+  "author": "obsipub",
+  "isDesktopOnly": false
+}

@@ -1,0 +1,21 @@
+{
+  "name": "obsipub-obsidian-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Publish an Obsidian note and its dependency graph to obsipub",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "deploy": "node esbuild.config.mjs --deploy",
+    "test": "node --import tsx --test tests/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "obsidian": "latest",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  }
+}

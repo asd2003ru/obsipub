@@ -1,0 +1,59 @@
+# Local test vault and publication data
+/testvault/
+
+# Build output
+/distrib/
+/obsipub
+plugin/dist/
+web/dist/
+internal/web/assets/dist/
+internal/web/assets/embed_dist.go
+
+# JavaScript dependencies
+plugin/node_modules/
+web/node_modules/
+
+# Go artifacts
+*.test
+*.out
+
+# Python cache and local tooling artifacts
+__pycache__/
+*.py[cod]
+
+# Local configuration and OS/editor files
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+
+# Runtime publication data
+/notes/
+
+# SQLite databases
+*.sqlite3
+*.sqlite
+*.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Editor swap/backup files
+*.swp
+*.swo
+*~
+*.bak
+
+# Coverage output
+coverage/
+
+# npm debug logs
+npm-debug.log
+npm-debug.log.*
+yarn-debug.log*
+pnpm-debug.log*

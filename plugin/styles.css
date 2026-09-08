@@ -1,0 +1,215 @@
+.obsipub-settings-status {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.obsipub-publication-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-ui-smaller);
+}
+
+.obsipub-publication-table thead th {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background-primary);
+}
+
+.obsipub-publication-table tbody tr {
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.obsipub-publication-table tbody tr:hover {
+  background: var(--background-modifier-hover);
+}
+
+.obsipub-publication-table tbody td {
+  padding: 0.35rem 0.6rem;
+  vertical-align: middle;
+  font-size: var(--font-ui-smaller);
+}
+
+.obsipub-publication-table .cell-prefix {
+  min-width: 10rem;
+  max-width: 22rem;
+  word-break: break-word;
+}
+
+.obsipub-publication-table .cell-status {
+  white-space: nowrap;
+}
+
+.obsipub-publication-table .cell-expiry {
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.obsipub-publication-table .cell-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.obsipub-publication-row-compact {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+}
+
+.obsipub-publication-row-compact:hover {
+  background: var(--background-modifier-hover);
+}
+
+.obsipub-publication-row-compact .row-prefix {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 8rem;
+}
+
+.obsipub-publication-row-compact .row-url-link {
+  color: var(--text-accent);
+  text-decoration: none;
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+
+.obsipub-publication-row-compact .row-status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  font-size: calc(var(--font-ui-smaller) - 0.05rem);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.obsipub-url-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.obsipub-url-link,
+.obsipub-publication-url-link {
+  font-size: var(--font-ui-smaller);
+}
+
+.obsipub-expiry-options {
+  margin-top: -0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.obsipub-publication-action-btn.has-label {
+  width: auto;
+  gap: 0.25rem;
+  padding-inline: 0.4rem;
+}
+
+.obsipub-action-label {
+  font-size: var(--font-ui-smaller);
+}
+
+.obsipub-url-row label {
+	font-size: var(--font-ui-small);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.obsipub-url-row select,
+.obsipub-url-row input {
+	font-size: var(--font-ui-small);
+  flex: 1 1 auto;
+  min-width: 8rem;
+  width: 100%;
+}
+
+.obsipub-publication-row-compact .row-status-badge.protected {
+  background: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.obsipub-publication-row-compact .row-status-badge.public {
+  background: var(--color-green);
+  color: var(--text-on-accent);
+}
+
+.obsipub-publication-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  min-width: 1.7rem;
+  padding: 0.15rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.35rem;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  line-height: 1;
+}
+
+.obsipub-publication-action-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--text-muted);
+}
+
+.obsipub-publication-table-scroll {
+  max-height: 65vh;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.35rem;
+}
+
+.obsipub-pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.obsipub-pagination-controls button {
+  font-size: var(--font-ui-smaller);
+}
+
+.obsipub-publication-inline-editor {
+  grid-column: 1 / -1;
+  padding: 0.35rem 0.2rem 0.2rem;
+  border-top: 1px dashed var(--background-modifier-border);
+  margin-top: 0.25rem;
+}
+
+.obsipub-publication-inline-editor .editor-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .obsipub-publication-row-compact {
+    grid-template-columns: 1fr auto;
+    gap: 0.35rem 0.5rem;
+  }
+  .obsipub-publication-row-compact .cell-expiry,
+  .obsipub-publication-row-compact .cell-actions {
+    justify-self: end;
+  }
+}

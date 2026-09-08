@@ -1,0 +1,12 @@
+.git
+.gitignore
+testvault
+notes
+node_modules
+dist
+distrib
+*.sqlite3
+.DS_Store
+.local
+.env
+.env.*

@@ -1,0 +1,16 @@
+services:
+  obsipub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: obsipub
+    ports:
+      - "${OBSIPUB_PORT:-8088}:8088"
+    environment:
+      OBSIPUB_API_KEY: ${OBSIPUB_API_KEY:-}
+      OBSIPUB_TRUSTED_PROXIES: ${OBSIPUB_TRUSTED_PROXIES:-}
+      OBSIPUB_ROOT: /data/notes
+      OBSIPUB_HOST: 0.0.0.0
+      OBSIPUB_PORT: "8088"
+    volumes:
+      - ${OBSIPUB_NOTES_DIR:-./notes}:/data/notes

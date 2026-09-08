@@ -194,6 +194,17 @@ Environment variables for compose:
 
 The container sets `OBSIPUB_HOST=0.0.0.0`, `OBSIPUB_ROOT=/data/notes`, and exposes `8088`.
 
+### GitHub releases
+
+Pushing a tag matching `v*.*.*-release` (for example `v1.0.0-release`) starts the GitHub Actions release workflow. It runs the tests and builds, creates a GitHub Release with a `distrib` tarball, and publishes the Docker image to GHCR as both the release tag and `latest`:
+
+```bash
+git tag v1.0.0-release
+git push origin v1.0.0-release
+```
+
+The image is published as `ghcr.io/<owner>/<repository>:v1.0.0-release`.
+
 ## Development checks
 
 ```bash

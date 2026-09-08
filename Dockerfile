@@ -16,7 +16,7 @@ COPY --from=web-builder /app/web/dist ./web/dist
 RUN go build -o /bin/obsipub ./cmd/obsipub
 
 # Final stage: Debian slim runtime
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*

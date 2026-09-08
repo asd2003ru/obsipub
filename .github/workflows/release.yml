@@ -123,15 +123,35 @@ jobs:
     needs: build-release
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - name: Check out source
         uses: actions/checkout@v7
 
       - name: Download platform archives
-        uses: actions/download-artifact@v7
-        with:
-          path: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name | startswith("release-")) | [.name, .archive_download_url] | @tsv' \
+            > /tmp/release-artifacts.tsv
+          test "$(wc -l < /tmp/release-artifacts.tsv)" -eq 5
+
+          while IFS=$'\t' read -r name url; do
+            archive="$(mktemp --suffix=.zip)"
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              "$url" \
+              -o "$archive"
+            mkdir -p "artifacts/$name"
+            unzip -q "$archive" -d "artifacts/$name"
+            rm -f "$archive"
+          done < /tmp/release-artifacts.tsv
 
       - name: Create GitHub Release
         env:

@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 jobs:
-  release:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -43,16 +43,107 @@ jobs:
           npm test --prefix plugin
           npm run build --prefix web
 
-      - name: Build release distribution
-        run: make release
+  build-release:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            name: linux-x64
+            extension: ""
+          - goos: linux
+            goarch: arm64
+            name: linux-arm64
+            extension: ""
+          - goos: windows
+            goarch: amd64
+            name: windows-x64
+            extension: .exe
+          - goos: darwin
+            goarch: amd64
+            name: macos-x64
+            extension: ""
+          - goos: darwin
+            goarch: arm64
+            name: macos-arm64
+            extension: ""
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
 
-      - name: Package release distribution
-        run: tar -czf "obsipub-${GITHUB_REF_NAME}.tar.gz" -C distrib .
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            plugin/package-lock.json
+            web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          npm ci --prefix plugin
+          npm ci --prefix web
+
+      - name: Build frontend assets
+        run: make plugin front
+
+      - name: Build platform archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          staging="$(mktemp -d)"
+          archive="obsipub-${GITHUB_REF_NAME}-${{ matrix.name }}"
+          mkdir -p "$staging/plugin" "$staging/web"
+          go build -trimpath -ldflags="-s -w" -o "$staging/obsipub${{ matrix.extension }}" ./cmd/obsipub
+          cp -a plugin/dist/. "$staging/plugin/"
+          cp -a web/dist/. "$staging/web/"
+          tar -czf "$archive.tar.gz" -C "$staging" .
+
+      - name: Upload platform archive
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-${{ matrix.name }}
+          path: obsipub-${{ github.ref_name }}-${{ matrix.name }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-release:
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download platform archives
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "obsipub-${GITHUB_REF_NAME}.tar.gz" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+        run: |
+          mapfile -t assets < <(find artifacts -type f -name '*.tar.gz' -print)
+          test "${#assets[@]}" -eq 5
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+
+  docker:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -78,3 +169,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max,ignore-error=true

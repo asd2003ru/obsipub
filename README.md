@@ -204,7 +204,7 @@ The GHCR package must be public, or Docker must already be authenticated to `ghc
 
 ### GitHub releases
 
-Pushing a tag matching `v*.*.*-release` (for example `v1.0.0-release`) starts the GitHub Actions release workflow. It runs the tests and builds, creates a GitHub Release with a `distrib` tarball, and publishes the Docker image to GHCR as both the release tag and `latest`:
+Pushing a tag matching `v*.*.*-release` (for example `v1.0.0-release`) starts the GitHub Actions release workflow. It runs the tests, creates a GitHub Release with archives for Linux x64, Linux ARM64, Windows x64, macOS x64, and macOS ARM64, and publishes the Docker image to GHCR as both the release tag and `latest`:
 
 ```bash
 git tag v1.0.0-release

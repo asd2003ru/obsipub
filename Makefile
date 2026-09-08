@@ -51,13 +51,13 @@ release:
 	@echo "Release built in $(DISTRIB) with plugin, web, and binary."
 
 docker-build:
-	docker compose build
+	docker compose -f docker-compose.developer.yml build
 
 docker-up:
-	docker compose up --build
+	docker compose -f docker-compose.developer.yml up --build
 
 docker-down:
-	docker compose down
+	docker compose -f docker-compose.developer.yml down
 
 clean:
 	rm -rf $(DISTRIB) $(PLUGIN_DIR)/dist $(WEB_DIR)/dist

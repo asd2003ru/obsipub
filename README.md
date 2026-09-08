@@ -183,7 +183,7 @@ Variables are configurable via environment or make args (`OBSIPUB_API_KEY=secret
 ### Docker
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.developer.yml up --build
 ```
 
 Environment variables for compose:
@@ -193,6 +193,14 @@ Environment variables for compose:
 - `OBSIPUB_NOTES_DIR` (default `./notes`) — persisted notes directory
 
 The container sets `OBSIPUB_HOST=0.0.0.0`, `OBSIPUB_ROOT=/data/notes`, and exposes `8088`.
+
+To run the latest image published to GitHub Container Registry instead of building locally:
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+The GHCR package must be public, or Docker must already be authenticated to `ghcr.io`.
 
 ### GitHub releases
 

@@ -21,7 +21,7 @@ func TestValidateTTL(t *testing.T) {
 }
 
 func TestValidateExpiresAt(t *testing.T) {
-	_, err := ValidateExpiresAt("2026-09-08T12:00:00Z")
+	_, err := ValidateExpiresAt(time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339))
 	if err != nil {
 		t.Errorf("valid RFC3339 rejected: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestParseHeaders(t *testing.T) {
 		t.Errorf("expected future expiry")
 	}
 
-	_, _, err = ParseHeaders("300", "2026-09-08T12:00:00Z")
+	_, _, err = ParseHeaders("300", time.Now().UTC().Add(2*time.Hour).Format(time.RFC3339))
 	if err == nil {
 		t.Errorf("expected conflicting headers to be rejected")
 	}

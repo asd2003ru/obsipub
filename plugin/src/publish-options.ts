@@ -7,6 +7,32 @@ export interface PublicationOptions {
   showArticleLineNumbers?: boolean;
   fullWidth?: boolean;
   resetProtection?: boolean;
+  defaultTheme?: ThemeChoice;
+}
+
+const VALID_THEMES = ["auto", "light", "dark"] as const;
+export type ThemeChoice = typeof VALID_THEMES[number];
+
+export function currentObsidianTheme(): ThemeChoice {
+  try {
+    const body = globalThis.document?.body;
+    if (body?.classList.contains("theme-dark")) return "dark";
+    if (body?.classList.contains("theme-light")) return "light";
+  } catch {
+    // The DOM may not be available during startup or in tests.
+  }
+  return "auto";
+}
+
+export function normalizeTheme(value: unknown): ThemeChoice {
+  if (typeof value === "string" && VALID_THEMES.includes(value as ThemeChoice)) {
+    return value as ThemeChoice;
+  }
+  return "auto";
+}
+
+export function isValidThemeChoice(value: string): boolean {
+  return VALID_THEMES.includes(value as ThemeChoice);
 }
 
 const PREFIX_PATTERN = /^[A-Za-z0-9_-]{0,64}$/;

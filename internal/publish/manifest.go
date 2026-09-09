@@ -28,12 +28,21 @@ type Manifest struct {
 	Version                int    `json:"version"`
 	Index                  string `json:"index"`
 	Theme                  string `json:"theme,omitempty"`
+	DefaultTheme           string `json:"defaultTheme"`
 	ShowLineNumbers        bool   `json:"showLineNumbers"`
 	ShowArticleLineNumbers bool   `json:"showArticleLineNumbers"`
 	FullWidth              bool   `json:"fullWidth"`
 	Tree                   Node   `json:"tree"`
 	Prefix                 string `json:"prefix,omitempty"`
 	PasswordHash           string `json:"passwordHash,omitempty"`
+}
+
+// NormalizeThemeMode keeps manifests forward-compatible with unknown values.
+func NormalizeThemeMode(value string) string {
+	if value == "light" || value == "dark" {
+		return value
+	}
+	return "auto"
 }
 
 func ValidatePrefix(prefix string) error {
@@ -156,6 +165,9 @@ func (m Manifest) Validate(root string) error {
 	if err := validateNode(m.Tree, root, 1); err != nil {
 		return err
 	}
+	if m.DefaultTheme != "" && m.DefaultTheme != "auto" && m.DefaultTheme != "light" && m.DefaultTheme != "dark" {
+		return fmt.Errorf("invalid default theme: %q", m.DefaultTheme)
+	}
 	if m.Theme != "" {
 		theme, err := normalizePath(m.Theme)
 		if err != nil || !strings.HasPrefix(theme, ".themes/") || !strings.EqualFold(filepath.Ext(theme), ".css") {
@@ -177,6 +189,7 @@ func Load(root string) (Manifest, error) {
 	if err := json.Unmarshal(body, &manifest); err != nil {
 		return Manifest{}, fmt.Errorf("decode index.json: %w", err)
 	}
+	manifest.DefaultTheme = NormalizeThemeMode(manifest.DefaultTheme)
 	if err := manifest.Validate(root); err != nil {
 		return Manifest{}, err
 	}
@@ -184,6 +197,7 @@ func Load(root string) (Manifest, error) {
 }
 
 func Write(root string, manifest Manifest) error {
+	manifest.DefaultTheme = NormalizeThemeMode(manifest.DefaultTheme)
 	if err := manifest.Validate(root); err != nil {
 		return err
 	}

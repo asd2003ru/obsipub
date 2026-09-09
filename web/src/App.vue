@@ -7,7 +7,7 @@ import { locale, t } from './i18n.js'
 import { isExternalUrl, publicationBasePath, stripPublicationBase, underPublication } from './paths.js'
 import { copyableMarkdown, stripFrontMatter } from './markdown-utils.js'
 
-const config = ref({ ready: false, index: '', theme: '', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
+const config = ref({ ready: false, index: '', theme: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
 const auth = ref({ ready: false, protected: false, authenticated: false })
 const authPassword = ref('')
 const authError = ref('')
@@ -230,6 +230,7 @@ async function loadConfig() {
       ready: Boolean(data.ready ?? data.Ready),
       index: data.index || data.Index || '',
       theme: data.theme || data.Theme || '',
+      defaultTheme: normalizeThemeMode(data.defaultTheme ?? data.DefaultTheme),
       showLineNumbers: Boolean(data.showLineNumbers ?? data.ShowLineNumbers),
       showArticleLineNumbers: Boolean(data.showArticleLineNumbers ?? data.ShowArticleLineNumbers),
       fullWidth: Boolean(data.fullWidth ?? data.FullWidth ?? false),
@@ -238,9 +239,13 @@ async function loadConfig() {
     }
     if (config.value.ready && config.value.tree) links.value = config.value.tree
     if (config.value.ready && config.value.theme) attachTheme(config.value.theme)
+    if (!window.localStorage.getItem('obsipub-theme-mode')) {
+      themeMode.value = config.value.defaultTheme
+      applyObsidianThemeClass()
+    }
     localFullWidth.value = Boolean(config.value.fullWidth)
   } catch (err) {
-    config.value = { ready: false, index: '', theme: '', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null }
+    config.value = { ready: false, index: '', theme: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null }
     console.warn('Cannot load /api/config:', err)
   }
 }
@@ -357,6 +362,10 @@ function initializeThemeMode() {
   systemThemeQuery = window.matchMedia?.('(prefers-color-scheme: dark)')
   systemThemeQuery?.addEventListener?.('change', applyObsidianThemeClass)
   applyObsidianThemeClass()
+}
+
+function normalizeThemeMode(value) {
+  return ['auto', 'light', 'dark'].includes(value) ? value : 'auto'
 }
 
 function setThemeMode(mode) {

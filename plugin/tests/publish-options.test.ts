@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isFutureExpiry, parsePublicationResponse } from "../src/publish-options";
+import { currentObsidianTheme, isFutureExpiry, normalizeTheme, parsePublicationResponse } from "../src/publish-options";
 import { rewriteFrontmatterWithObsipub } from "../src/archive";
 
 test("parsePublicationResponse validates expiresAt as Unix seconds or null", () => {
@@ -18,6 +18,16 @@ test("isFutureExpiry rejects current and past timestamps", () => {
   assert.equal(isFutureExpiry("2026-01-01T00:00:00.000Z", Date.parse("2026-01-01T00:00:00.000Z")), false);
   assert.equal(isFutureExpiry("2025-12-31T23:59:59.000Z", Date.parse("2026-01-01T00:00:00.000Z")), false);
   assert.equal(isFutureExpiry("2026-01-01T00:00:01.000Z", Date.parse("2026-01-01T00:00:00.000Z")), true);
+});
+
+test("normalizeTheme falls back to auto", () => {
+  assert.equal(normalizeTheme("light"), "light");
+  assert.equal(normalizeTheme("dark"), "dark");
+  assert.equal(normalizeTheme("unknown"), "auto");
+});
+
+test("currentObsidianTheme falls back to auto outside Obsidian", () => {
+  assert.equal(currentObsidianTheme(), "auto");
 });
 
 test("rewriteFrontmatterWithObsipub writes flat YAML properties, not inline JSON", () => {

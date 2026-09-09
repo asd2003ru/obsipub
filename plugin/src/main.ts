@@ -12,7 +12,7 @@ import {
   normalizePath
 } from "obsidian";
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
-import { buildPublicationUploadHeaders, isFutureExpiry, isValidPublicationPrefix, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse } from "./publish-options";
+import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice } from "./publish-options";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -109,6 +109,11 @@ function t(key: string): string {
     "cleanFrontmatterNoFiles": "Устаревших метаданных не найдено.",
     "fullWidthName": "Полная ширина читателя",
     "fullWidthDesc": "Использовать полную доступную ширину области чтения для опубликованного текста.",
+    "defaultThemeName": "Тема по умолчанию",
+    "defaultThemeDesc": "Тема, с которой откроется опубликованная страница.",
+    "themeAuto": "Авто",
+    "themeLight": "Светлая",
+    "themeDark": "Тёмная",
   };
   const en: Record<string, string> = {
     "managePublicationsTitle": "Manage publications",
@@ -191,6 +196,11 @@ function t(key: string): string {
     "cleanFrontmatterNoFiles": "No stale metadata found.",
     "fullWidthName": "Full reader width",
     "fullWidthDesc": "Use the full available reader area for published text.",
+    "defaultThemeName": "Default theme",
+    "defaultThemeDesc": "Theme used when the published page opens.",
+    "themeAuto": "Auto",
+    "themeLight": "Light",
+    "themeDark": "Dark",
   };
   return isRussian() ? (ru[key] ?? en[key] ?? key) : (en[key] ?? key);
 }
@@ -268,6 +278,7 @@ export default class ObsipubPlugin extends Plugin {
       const initialFullWidth = fm.obsipub_fullWidth === true;
       let initialProtected = fm.obsipub_protected === true;
       const initialExpiresAt = typeof fm.obsipub_expire === "string" ? fm.obsipub_expire : "";
+      const initialDefaultTheme = currentObsidianTheme();
 
       // Validate expired publication using existing admin endpoint
       let expired = false;
@@ -336,6 +347,7 @@ export default class ObsipubPlugin extends Plugin {
         initialShowLineNumbers,
         initialShowArticleLineNumbers,
         initialFullWidth,
+        initialDefaultTheme,
         initialProtected,
         initialExpiresAt
       ).openAndGetValue();
@@ -355,6 +367,7 @@ export default class ObsipubPlugin extends Plugin {
         version: 1 as const,
         index: root.path,
         theme,
+        defaultTheme: normalizeTheme(options.defaultTheme),
         showLineNumbers: options.showLineNumbers,
         showArticleLineNumbers: !!options.showArticleLineNumbers,
         fullWidth: !!options.fullWidth,
@@ -594,18 +607,20 @@ class PublicationOptionsModal extends Modal {
   private readonly initialShowLineNumbers: boolean;
   private readonly initialShowArticleLineNumbers: boolean;
   private readonly initialFullWidth: boolean;
+  private readonly initialDefaultTheme: ThemeChoice;
   private readonly initialProtected: boolean;
   private readonly initialExpiresAt: string;
   private resolveValue!: (value: PublicationOptions | undefined) => void;
   private settled = false;
 
-  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialProtected: boolean, initialExpiresAt: string) {
+  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialDefaultTheme: ThemeChoice, initialProtected: boolean, initialExpiresAt: string) {
     super(app);
     this.serverUrl = serverUrl;
     this.initialPrefix = initialPrefix;
     this.initialShowLineNumbers = initialShowLineNumbers;
     this.initialShowArticleLineNumbers = initialShowArticleLineNumbers;
     this.initialFullWidth = initialFullWidth;
+    this.initialDefaultTheme = initialDefaultTheme;
     this.initialProtected = initialProtected;
     this.initialExpiresAt = initialExpiresAt;
   }
@@ -654,6 +669,17 @@ class PublicationOptionsModal extends Modal {
       .setName(t("fullWidthName"))
       .setDesc(t("fullWidthDesc"))
       .addToggle((toggle) => toggle.setValue(fullWidth).onChange((value) => { fullWidth = value; }));
+
+    let defaultTheme: ThemeChoice = this.initialDefaultTheme;
+    new Setting(contentEl)
+      .setName(t("defaultThemeName"))
+      .setDesc(t("defaultThemeDesc"))
+      .addDropdown((dropdown) => dropdown
+        .addOption("auto", t("themeAuto"))
+        .addOption("light", t("themeLight"))
+        .addOption("dark", t("themeDark"))
+        .setValue(defaultTheme)
+        .onChange((value) => { defaultTheme = normalizeTheme(value); }));
 
     if (this.initialProtected) {
       new Setting(contentEl)
@@ -904,7 +930,7 @@ class PublicationOptionsModal extends Modal {
         return;
       }
       this.settled = true;
-      const result: PublicationOptions = { prefix, password, showLineNumbers, showArticleLineNumbers, fullWidth, resetProtection };
+      const result: PublicationOptions = { prefix, password, showLineNumbers, showArticleLineNumbers, fullWidth, defaultTheme, resetProtection };
       if (expiryMode === "relative" && ttlValue) result.ttl = ttlValue;
       if (expiryMode === "until" && untilValue) result.expiresAt = untilValue;
       this.resolveValue(result);

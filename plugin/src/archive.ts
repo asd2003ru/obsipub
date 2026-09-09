@@ -60,6 +60,7 @@ export interface PublishIndex {
   version: 1;
   index: string;
   theme: string;
+  defaultTheme?: "auto" | "light" | "dark";
   showLineNumbers: boolean;
   showArticleLineNumbers?: boolean;
   fullWidth?: boolean;

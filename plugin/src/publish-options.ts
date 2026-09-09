@@ -5,6 +5,7 @@ export interface PublicationOptions {
   expiresAt?: string;
   showLineNumbers: boolean;
   showArticleLineNumbers?: boolean;
+  fullWidth?: boolean;
   resetProtection?: boolean;
 }
 

@@ -7,7 +7,7 @@ import { locale, t } from './i18n.js'
 import { isExternalUrl, publicationBasePath, stripPublicationBase, underPublication } from './paths.js'
 import { copyableMarkdown, stripFrontMatter } from './markdown-utils.js'
 
-const config = ref({ ready: false, index: '', theme: '', showLineNumbers: false, showArticleLineNumbers: false, tree: null })
+const config = ref({ ready: false, index: '', theme: '', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
 const auth = ref({ ready: false, protected: false, authenticated: false })
 const authPassword = ref('')
 const authError = ref('')
@@ -34,10 +34,12 @@ let excalidrawMounts = []
 let navigationVersion = 0
 const readerWidth = ref(600)
 const themeMode = ref('auto') // auto | light | dark
+const localFullWidth = ref(false)
 const basePath = publicationBasePath(window.location.pathname)
 let systemThemeQuery
 
 const breadcrumbs = computed(() => dependencyBreadcrumbs(currentPath.value))
+const effectiveFullWidth = computed(() => localFullWidth.value)
 const noteTitle = computed(() => breadcrumbs.value.map((item) => item.name).join('/') || currentPath.value || config.value.index || 'index.md')
 
 function extractFrontMatter(source) {
@@ -230,13 +232,15 @@ async function loadConfig() {
       theme: data.theme || data.Theme || '',
       showLineNumbers: Boolean(data.showLineNumbers ?? data.ShowLineNumbers),
       showArticleLineNumbers: Boolean(data.showArticleLineNumbers ?? data.ShowArticleLineNumbers),
+      fullWidth: Boolean(data.fullWidth ?? data.FullWidth ?? false),
       tree: data.tree || data.Tree || null,
       ...data,
     }
     if (config.value.ready && config.value.tree) links.value = config.value.tree
     if (config.value.ready && config.value.theme) attachTheme(config.value.theme)
+    localFullWidth.value = Boolean(config.value.fullWidth)
   } catch (err) {
-    config.value = { ready: false, index: '', theme: '', showLineNumbers: false, showArticleLineNumbers: false, tree: null }
+    config.value = { ready: false, index: '', theme: '', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null }
     console.warn('Cannot load /api/config:', err)
   }
 }
@@ -907,11 +911,14 @@ function renderInline(text, fromPath) {
           <button class="copy-markdown-btn" type="button" :aria-label="t('copyMarkdown')" :title="t('copyMarkdown')" @click="copyMarkdown">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9v1" /></svg>
           </button>
+          <button class="full-width-btn" type="button" :class="{ active: effectiveFullWidth }" :aria-label="effectiveFullWidth ? t('fullWidthOff') : t('fullWidthOn')" :title="effectiveFullWidth ? t('fullWidthOff') : t('fullWidthOn')" @click="localFullWidth = !localFullWidth">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="6" y="15" width="12" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
           <span v-if="copyState === 'success'" class="copy-status" role="status">{{ t('copied') }}</span>
           <span v-else-if="copyState === 'error'" class="copy-status error-text" role="alert">{{ t('copyFailed') }}</span>
           <div v-if="loading" class="loading" role="status">{{ t('loading') }}</div>
-          <pre v-if="showRawMarkdown" class="raw-markdown"><code>{{ markdown }}</code></pre>
-          <article v-show="!showRawMarkdown" ref="markdownArticle" class="markdown-body markdown-preview-view markdown-rendered" :class="{ 'with-article-line-numbers': config.showArticleLineNumbers }" v-html="rendered" @click="onContentClick"></article>
+          <pre v-if="showRawMarkdown" class="raw-markdown" :class="{ 'full-width': effectiveFullWidth }"><code>{{ markdown }}</code></pre>
+          <article v-show="!showRawMarkdown" ref="markdownArticle" class="markdown-body markdown-preview-view markdown-rendered" :class="{ 'with-article-line-numbers': config.showArticleLineNumbers, 'full-width': effectiveFullWidth }" v-html="rendered" @click="onContentClick"></article>
         </section>
       </section>
     </div>

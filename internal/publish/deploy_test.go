@@ -417,3 +417,33 @@ func TestDeployWithOverridesRejectsMismatchedPrefix(t *testing.T) {
 		t.Fatal("expected error for empty prefix with prefixed manager")
 	}
 }
+
+func TestManifestFullWidthDefaultAndTrue(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "index.md"), []byte("# hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, FullWidth: true}
+	if err := Write(root, manifest); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.FullWidth {
+		t.Fatal("expected FullWidth true")
+	}
+
+	manifest2 := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}}
+	if err := Write(root, manifest2); err != nil {
+		t.Fatal(err)
+	}
+	loaded2, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded2.FullWidth {
+		t.Fatal("expected FullWidth false by default")
+	}
+}

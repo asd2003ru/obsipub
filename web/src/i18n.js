@@ -10,6 +10,7 @@ const messages = {
     showDocument: 'Показать документ', showSource: 'Показать исходный Markdown', copyMarkdown: 'Копировать Markdown', copyFailed: 'Не удалось скопировать Markdown', searchLoading: 'Поиск…', copy: 'Копировать', copied: 'Скопировано', operationError: 'Ошибка',
     openError: 'Не удалось открыть {path}: {error}', treeError: 'Не удалось загрузить дерево заметок: {error}', searchError: 'Поиск недоступен: {error}', excalidraw: 'Рисунок Excalidraw',
     collapse: 'Свернуть папку', expand: 'Раскрыть папку', collapseShort: 'Свернуть', expandShort: 'Раскрыть', truncated: 'Показана максимальная глубина',
+    fullWidthOn: 'Полная ширина', fullWidthOff: 'Обычная ширина',
     drawingLoading: 'Загрузка рисунка…', drawingError: 'Не удалось отобразить рисунок: {error}', invalidScene: 'элементы сцены не найдены', invalidFormat: 'формат Excalidraw не распознан', drawingControls: 'Управление рисунком', fit: 'Вписать рисунок', zoomOut: 'Отдалить', zoomIn: 'Приблизить', close: 'Закрыть', authTitle: 'Публикация защищена', authText: 'Введите пароль, чтобы открыть эту публикацию.', authPassword: 'Пароль', authSubmit: 'Войти', authError: 'Не удалось войти: {error}'
   },
   en: {
@@ -19,6 +20,7 @@ const messages = {
     showDocument: 'Show document', showSource: 'Show raw Markdown', copyMarkdown: 'Copy Markdown', copyFailed: 'Failed to copy Markdown', searchLoading: 'Searching…', copy: 'Copy', copied: 'Copied', operationError: 'Error',
     openError: 'Could not open {path}: {error}', treeError: 'Could not load note tree: {error}', searchError: 'Search unavailable: {error}', excalidraw: 'Excalidraw drawing',
     collapse: 'Collapse folder', expand: 'Expand folder', collapseShort: 'Collapse', expandShort: 'Expand', truncated: 'Maximum depth shown',
+    fullWidthOn: 'Full width', fullWidthOff: 'Standard width',
     drawingLoading: 'Loading drawing…', drawingError: 'Could not display drawing: {error}', invalidScene: 'scene elements not found', invalidFormat: 'Excalidraw format not recognized', drawingControls: 'Drawing controls', fit: 'Fit drawing', zoomOut: 'Zoom out', zoomIn: 'Zoom in', close: 'Close', authTitle: 'Protected publication', authText: 'Enter the password to open this publication.', authPassword: 'Password', authSubmit: 'Sign in', authError: 'Sign-in failed: {error}'
   }
 }

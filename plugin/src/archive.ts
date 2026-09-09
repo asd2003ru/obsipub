@@ -15,7 +15,7 @@ export function rewriteFrontmatterWithObsipub(text: string, obsipubValue: Record
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (/^(obsipub_url|obsipub_prefix|obsipub_expire|obsipub_showLineNumbers|obsipub_showArticleLineNumbers|obsipub_protected):/.test(trimmed)) {
+    if (/^(obsipub_url|obsipub_prefix|obsipub_expire|obsipub_showLineNumbers|obsipub_showArticleLineNumbers|obsipub_fullWidth|obsipub_protected):/.test(trimmed)) {
       i += 1;
       continue;
     }
@@ -32,6 +32,7 @@ export function rewriteFrontmatterWithObsipub(text: string, obsipubValue: Record
     if (k === "expire") return "obsipub_expire";
     if (k === "showLineNumbers") return "obsipub_showLineNumbers";
     if (k === "showArticleLineNumbers") return "obsipub_showArticleLineNumbers";
+    if (k === "fullWidth") return "obsipub_fullWidth";
     if (k === "protected") return "obsipub_protected";
     if (k === "url") return "obsipub_url";
     if (k === "prefix") return "obsipub_prefix";
@@ -61,6 +62,7 @@ export interface PublishIndex {
   theme: string;
   showLineNumbers: boolean;
   showArticleLineNumbers?: boolean;
+  fullWidth?: boolean;
   tree: DependencyTreeNode;
 }
 

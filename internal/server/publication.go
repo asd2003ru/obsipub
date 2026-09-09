@@ -24,6 +24,7 @@ type configResponse struct {
 	Theme                  string        `json:"theme,omitempty"`
 	ShowLineNumbers        bool          `json:"showLineNumbers"`
 	ShowArticleLineNumbers bool          `json:"showArticleLineNumbers"`
+	FullWidth              bool          `json:"fullWidth"`
 	Tree                   *publish.Node `json:"tree,omitempty"`
 }
 
@@ -53,7 +54,7 @@ func (p *publication) config(c fiber.Ctx) error {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "not published"})
 	}
 	tree := manifest.Tree
-	return c.JSON(configResponse{Ready: true, Index: manifest.Index, Theme: manifest.Theme, ShowLineNumbers: manifest.ShowLineNumbers, ShowArticleLineNumbers: manifest.ShowArticleLineNumbers, Tree: &tree})
+	return c.JSON(configResponse{Ready: true, Index: manifest.Index, Theme: manifest.Theme, ShowLineNumbers: manifest.ShowLineNumbers, ShowArticleLineNumbers: manifest.ShowArticleLineNumbers, FullWidth: manifest.FullWidth, Tree: &tree})
 }
 
 func (p *publication) markdown(c fiber.Ctx) error {

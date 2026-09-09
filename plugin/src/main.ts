@@ -107,6 +107,8 @@ function t(key: string): string {
     "cleanFrontmatterDesc": "Удалить устаревшие метаданные obsipub из заметок Markdown, сравнивая с текущими публикациями сервера.",
     "cleanFrontmatterSuccess": "Очищено файлов: {count}",
     "cleanFrontmatterNoFiles": "Устаревших метаданных не найдено.",
+    "fullWidthName": "Полная ширина читателя",
+    "fullWidthDesc": "Использовать полную доступную ширину области чтения для опубликованного текста.",
   };
   const en: Record<string, string> = {
     "managePublicationsTitle": "Manage publications",
@@ -187,6 +189,8 @@ function t(key: string): string {
     "cleanFrontmatterDesc": "Remove stale obsipub metadata from vault Markdown notes based on current server publications.",
     "cleanFrontmatterSuccess": "Cleaned {count} file(s).",
     "cleanFrontmatterNoFiles": "No stale metadata found.",
+    "fullWidthName": "Full reader width",
+    "fullWidthDesc": "Use the full available reader area for published text.",
   };
   return isRussian() ? (ru[key] ?? en[key] ?? key) : (en[key] ?? key);
 }
@@ -261,6 +265,7 @@ export default class ObsipubPlugin extends Plugin {
       const initialPrefix = typeof fm.obsipub_prefix === "string" ? fm.obsipub_prefix : "";
       const initialShowLineNumbers = fm.obsipub_showLineNumbers === true;
       const initialShowArticleLineNumbers = fm.obsipub_showArticleLineNumbers === true;
+      const initialFullWidth = fm.obsipub_fullWidth === true;
       let initialProtected = fm.obsipub_protected === true;
       const initialExpiresAt = typeof fm.obsipub_expire === "string" ? fm.obsipub_expire : "";
 
@@ -330,6 +335,7 @@ export default class ObsipubPlugin extends Plugin {
         initialPrefix,
         initialShowLineNumbers,
         initialShowArticleLineNumbers,
+        initialFullWidth,
         initialProtected,
         initialExpiresAt
       ).openAndGetValue();
@@ -351,6 +357,7 @@ export default class ObsipubPlugin extends Plugin {
         theme,
         showLineNumbers: options.showLineNumbers,
         showArticleLineNumbers: !!options.showArticleLineNumbers,
+        fullWidth: !!options.fullWidth,
         tree
       };
       const zip = createPublishZip(entries, index);
@@ -363,6 +370,7 @@ export default class ObsipubPlugin extends Plugin {
         publication.expiresAt,
         options.showLineNumbers,
         !!options.showArticleLineNumbers,
+        !!options.fullWidth,
         options.resetProtection ? false : (initialProtected || !!options.password)
       );
       new Notice(`${t("publishPublishedFiles")} ${files.size} (${Math.ceil(zip.byteLength / 1024)} KiB): ${publicationUrl}`);
@@ -490,7 +498,7 @@ export default class ObsipubPlugin extends Plugin {
     }
   }
 
-  private async updateFrontmatterAfterPublish(file: TFile, url: string, prefix: string, expiresAt: number | null | undefined, showLineNumbers: boolean, showArticleLineNumbers: boolean, protectedPublication: boolean): Promise<void> {
+  private async updateFrontmatterAfterPublish(file: TFile, url: string, prefix: string, expiresAt: number | null | undefined, showLineNumbers: boolean, showArticleLineNumbers: boolean, fullWidth: boolean, protectedPublication: boolean): Promise<void> {
     const content = await this.app.vault.read(file);
     const rewritten = rewriteFrontmatterWithObsipub(content, {
       url,
@@ -498,6 +506,7 @@ export default class ObsipubPlugin extends Plugin {
       expire: expiresAt != null && expiresAt > 0 ? new Date(expiresAt * 1000).toISOString() : null,
       showLineNumbers,
       showArticleLineNumbers,
+      fullWidth,
       protected: protectedPublication
     });
     await this.app.vault.modify(file, rewritten);
@@ -584,17 +593,19 @@ class PublicationOptionsModal extends Modal {
   private readonly initialPrefix: string;
   private readonly initialShowLineNumbers: boolean;
   private readonly initialShowArticleLineNumbers: boolean;
+  private readonly initialFullWidth: boolean;
   private readonly initialProtected: boolean;
   private readonly initialExpiresAt: string;
   private resolveValue!: (value: PublicationOptions | undefined) => void;
   private settled = false;
 
-  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialProtected: boolean, initialExpiresAt: string) {
+  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialProtected: boolean, initialExpiresAt: string) {
     super(app);
     this.serverUrl = serverUrl;
     this.initialPrefix = initialPrefix;
     this.initialShowLineNumbers = initialShowLineNumbers;
     this.initialShowArticleLineNumbers = initialShowArticleLineNumbers;
+    this.initialFullWidth = initialFullWidth;
     this.initialProtected = initialProtected;
     this.initialExpiresAt = initialExpiresAt;
   }
@@ -637,6 +648,12 @@ class PublicationOptionsModal extends Modal {
       .setName(t("showArticleLineNumbersName"))
       .setDesc(t("showArticleLineNumbersDesc"))
       .addToggle((toggle) => toggle.setValue(showArticleLineNumbers).onChange((value) => { showArticleLineNumbers = value; }));
+
+    let fullWidth = this.initialFullWidth;
+    new Setting(contentEl)
+      .setName(t("fullWidthName"))
+      .setDesc(t("fullWidthDesc"))
+      .addToggle((toggle) => toggle.setValue(fullWidth).onChange((value) => { fullWidth = value; }));
 
     if (this.initialProtected) {
       new Setting(contentEl)
@@ -887,7 +904,7 @@ class PublicationOptionsModal extends Modal {
         return;
       }
       this.settled = true;
-      const result: PublicationOptions = { prefix, password, showLineNumbers, showArticleLineNumbers, resetProtection };
+      const result: PublicationOptions = { prefix, password, showLineNumbers, showArticleLineNumbers, fullWidth, resetProtection };
       if (expiryMode === "relative" && ttlValue) result.ttl = ttlValue;
       if (expiryMode === "until" && untilValue) result.expiresAt = untilValue;
       this.resolveValue(result);

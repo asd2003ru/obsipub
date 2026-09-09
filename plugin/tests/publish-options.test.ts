@@ -36,3 +36,17 @@ test("rewriteFrontmatterWithObsipub writes flat YAML properties, not inline JSON
   assert.match(output, /tags:\n  - docs/);
   assert.match(output, /---\n# Body/);
 });
+
+test("rewriteFrontmatterWithObsipub includes fullWidth when true", () => {
+  const input = "---\ntitle: Note\n---\n# Body\n";
+  const output = rewriteFrontmatterWithObsipub(input, {
+    url: "https://example.com/",
+    prefix: "test",
+    expire: null,
+    showLineNumbers: false,
+    showArticleLineNumbers: false,
+    fullWidth: true,
+    protected: false
+  });
+  assert.ok(output.includes("obsipub_fullWidth: true"));
+});

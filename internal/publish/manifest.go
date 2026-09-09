@@ -30,6 +30,7 @@ type Manifest struct {
 	Theme                  string `json:"theme,omitempty"`
 	ShowLineNumbers        bool   `json:"showLineNumbers"`
 	ShowArticleLineNumbers bool   `json:"showArticleLineNumbers"`
+	FullWidth              bool   `json:"fullWidth"`
 	Tree                   Node   `json:"tree"`
 	Prefix                 string `json:"prefix,omitempty"`
 	PasswordHash           string `json:"passwordHash,omitempty"`

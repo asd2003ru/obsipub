@@ -532,6 +532,40 @@ button {
   background: var(--accent-soft);
 }
 
+.full-width-btn {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 72px;
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.full-width-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.full-width-btn:hover,
+.full-width-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
@@ -1589,6 +1623,12 @@ body.theme-dark {
   line-height: 1.55;
 }
 
+.markdown-body.full-width,
+.raw-markdown.full-width {
+  width: 100%;
+  max-width: none;
+}
+
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3,
@@ -1872,6 +1912,12 @@ body.theme-light {
 .raw-markdown {
   width: min(100%, var(--file-line-width, 860px));
   font-family: var(--font-text, var(--font-interface-theme, inherit));
+}
+
+.markdown-body.full-width,
+.raw-markdown.full-width {
+  width: 100%;
+  max-width: none;
 }
 
 .markdown-body h1 { font-size: var(--h1-size, 2rem); font-weight: var(--h1-weight, 600); }

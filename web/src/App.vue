@@ -38,9 +38,10 @@ let navigationVersion = 0
 let mermaidRenderCounter = 0
 let mermaidInitialized = false
 const readerWidth = ref(600)
-const themeMode = ref('auto') // auto | light | dark
-const localFullWidth = ref(false)
 const basePath = publicationBasePath(window.location.pathname)
+const themeMode = ref('auto') // auto | light | dark
+const themeModeStorageKey = `obsipub-theme-mode:${basePath || '/'}`
+const localFullWidth = ref(false)
 let systemThemeQuery
 
 const breadcrumbs = computed(() => dependencyBreadcrumbs(currentPath.value))
@@ -309,7 +310,7 @@ async function loadConfig() {
     }
     if (config.value.ready && config.value.tree) links.value = config.value.tree
     if (config.value.ready && config.value.theme) attachTheme(config.value.theme)
-    if (!window.localStorage.getItem('obsipub-theme-mode')) {
+    if (!readStoredThemeMode()) {
       themeMode.value = config.value.defaultTheme
       applyObsidianThemeClass()
     }
@@ -423,14 +424,31 @@ function attachTheme(name) {
   if (!name) return
   const link = document.createElement('link')
   link.rel = 'stylesheet'
-  link.href = underPublication(basePath, '/api/theme')
+  link.href = `${underPublication(basePath, '/api/theme')}?v=${encodeURIComponent(name)}`
   link.dataset.obsipubTheme = name
   document.head.appendChild(link)
 }
 
+function readStoredThemeMode() {
+  try {
+    const savedMode = window.localStorage.getItem(themeModeStorageKey)
+    return ['auto', 'light', 'dark'].includes(savedMode) ? savedMode : ''
+  } catch {
+    return ''
+  }
+}
+
+function writeStoredThemeMode(mode) {
+  try {
+    window.localStorage.setItem(themeModeStorageKey, mode)
+  } catch {
+    // Ignore storage failures in private browsing or restricted environments.
+  }
+}
+
 function initializeThemeMode() {
-  const savedMode = window.localStorage.getItem('obsipub-theme-mode')
-  if (['auto', 'light', 'dark'].includes(savedMode)) themeMode.value = savedMode
+  const savedMode = readStoredThemeMode()
+  if (savedMode) themeMode.value = savedMode
   systemThemeQuery = window.matchMedia?.('(prefers-color-scheme: dark)')
   systemThemeQuery?.addEventListener?.('change', applyObsidianThemeClass)
   applyObsidianThemeClass()
@@ -443,7 +461,7 @@ function normalizeThemeMode(value) {
 function setThemeMode(mode) {
   if (!['auto', 'light', 'dark'].includes(mode)) return
   themeMode.value = mode
-  window.localStorage.setItem('obsipub-theme-mode', mode)
+  writeStoredThemeMode(mode)
   applyObsidianThemeClass()
 }
 

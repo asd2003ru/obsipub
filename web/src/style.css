@@ -2160,3 +2160,54 @@ body.theme-dark .markdown-rendered .code-block pre {
 .auth-card input, .auth-card button { font: inherit; padding: 0.7rem 0.8rem; border-radius: 0.45rem; border: 1px solid var(--background-modifier-border); }
 .auth-card button { cursor: pointer; background: var(--interactive-accent); color: var(--text-on-accent); }
 .auth-card button:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.drawio-preview {
+  display: block;
+  width: 100%;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.drawio-preview-status {
+  padding: 1.5rem;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.92rem;
+}
+
+.drawio-preview-error-text {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.drawio-preview-fallback {
+  padding: 1.5rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.drawio-preview-fallback strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.drawio-preview-source {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.drawio-preview-svg {
+  display: block;
+  width: 100%;
+}
+
+.drawio-preview-container {
+  display: block;
+  width: 100%;
+  margin: 1rem 0;
+}

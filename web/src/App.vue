@@ -2,6 +2,7 @@
 import { computed, createApp, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import mermaid from 'mermaid'
 import ExcalidrawEmbed from './components/ExcalidrawEmbed.vue'
+import DrawioPreview from './components/DrawioPreview.vue'
 import LinkTreeBranch from './components/LinkTreeBranch.vue'
 import { calloutIconSvg } from './calloutIcons.js'
 import { locale, t } from './i18n.js'
@@ -150,6 +151,7 @@ watch(articleRenderVersion, () => {
 
 onBeforeUnmount(() => {
   unmountExcalidrawEmbeds()
+  unmountDrawioPreviews()
   systemThemeQuery?.removeEventListener?.('change', applyObsidianThemeClass)
   if (window.__obsipubKeyListener) {
     window.removeEventListener('keydown', window.__obsipubKeyListener)
@@ -170,6 +172,36 @@ async function mountExcalidrawEmbeds() {
   })
 }
 
+let drawioMounts = []
+
+function unmountDrawioPreviews() {
+  for (const { app, placeholder } of drawioMounts) app.unmount(placeholder)
+  drawioMounts = []
+}
+
+async function mountDrawioPreviews() {
+  await nextTick()
+  unmountDrawioPreviews()
+  const placeholders = markdownArticle.value?.querySelectorAll('.drawio-placeholder:not([data-drawio-inline-xml])') || []
+  drawioMounts = Array.from(placeholders, (placeholder) => {
+    const app = createApp(DrawioPreview, {
+      src: placeholder.dataset.drawioSrc,
+      title: placeholder.dataset.drawioTitle || 'draw.io diagram',
+    })
+    app.mount(placeholder)
+    return { app, placeholder }
+  })
+  const inlinePlaceholders = markdownArticle.value?.querySelectorAll('.drawio-placeholder[data-drawio-inline-xml]') || []
+  for (const placeholder of inlinePlaceholders) {
+    const app = createApp(DrawioPreview, {
+      inlineXml: placeholder.dataset.drawioInlineXml || '',
+      title: placeholder.dataset.drawioTitle || 'draw.io diagram',
+    })
+    app.mount(placeholder)
+    drawioMounts.push({ app, placeholder })
+  }
+}
+
 function unmountExcalidrawEmbeds() {
   for (const { app, placeholder } of excalidrawMounts) app.unmount(placeholder)
   excalidrawMounts = []
@@ -177,6 +209,7 @@ function unmountExcalidrawEmbeds() {
 
 async function mountArticleEnhancements() {
   await mountExcalidrawEmbeds()
+  await mountDrawioPreviews()
   await renderMermaidDiagrams()
 }
 
@@ -301,6 +334,7 @@ async function openNote(path, options = {}) {
     if (requestVersion !== navigationVersion) return
 
     unmountExcalidrawEmbeds()
+    unmountDrawioPreviews()
     currentPath.value = nextPath
     showRawMarkdown.value = false
     markdown.value = parseMarkdownResponse(body, response.headers.get('content-type'))
@@ -310,6 +344,7 @@ async function openNote(path, options = {}) {
   } catch (err) {
     if (requestVersion !== navigationVersion) return
     unmountExcalidrawEmbeds()
+    unmountDrawioPreviews()
     currentPath.value = nextPath
     markdown.value = ''
     articleRenderVersion.value += 1
@@ -608,6 +643,14 @@ function isExcalidrawTarget(target) {
   return /\.excalidraw(?:\.md)?(?:#.*)?$/i.test(String(target).trim())
 }
 
+function isDrawioTarget(target) {
+  return /\.(drawio|dio)(?:\.md)?(?:#.*)?$/i.test(String(target).trim())
+}
+
+function isDrawioImageTarget(target) {
+  return /\.drawio\.(svg|png)(?:#.*)?$/i.test(String(target).trim())
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -664,8 +707,12 @@ function codeLanguage(lang = '') {
 }
 
 function renderCodeBlock(code, lang = '') {
-  if (String(lang).trim().toLowerCase().split(/\s+/)[0] === 'mermaid') {
+  const langKey = String(lang).trim().toLowerCase().split(/\s+/)[0]
+  if (langKey === 'mermaid') {
     return renderMermaidBlock(code)
+  }
+  if (['drawio', 'diagrams', 'diagrams.net'].includes(langKey)) {
+    return renderDrawioBlock(code)
   }
 
   return renderPlainCodeBlock(code, lang)
@@ -685,6 +732,11 @@ function renderPlainCodeBlock(code, lang = '') {
 
 function renderMermaidBlock(code) {
   return `<div class="mermaid-diagram" data-mermaid-source="${escapeAttr(code)}"><pre><code>${escapeHtml(code)}</code></pre></div>`
+}
+
+function renderDrawioBlock(code) {
+  const title = 'draw.io / diagrams.net diagram'
+  return `<span class="drawio-placeholder" data-drawio-inline-xml="${escapeAttr(code)}" data-drawio-title="${escapeAttr(title)}"></span>`
 }
 
 function articleBlock(html, sourceLine) {
@@ -909,6 +961,10 @@ function renderInline(text, fromPath) {
       const source = target.split('|', 1)[0].trim()
       if (isExcalidrawTarget(source)) {
         result += `<span class="excalidraw-placeholder" data-excalidraw-src="${escapeAttr(rawUrl(source, fromPath))}" data-excalidraw-title="${escapeAttr(source)}"></span>`
+      } else if (isDrawioImageTarget(source)) {
+        result += `<img class="embed" src="${escapeAttr(rawUrl(source, fromPath))}" alt="${escapeAttr(target)}">`
+      } else if (isDrawioTarget(source)) {
+        result += `<span class="drawio-placeholder" data-drawio-src="${escapeAttr(rawUrl(source, fromPath))}" data-drawio-title="${escapeAttr(source)}"></span>`
       } else {
         result += `<img class="embed" src="${escapeAttr(rawUrl(source, fromPath))}" alt="${escapeAttr(target)}">`
       }

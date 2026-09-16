@@ -1,5 +1,6 @@
 <script setup>
 import { computed, createApp, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import mermaid from 'mermaid'
 import ExcalidrawEmbed from './components/ExcalidrawEmbed.vue'
 import LinkTreeBranch from './components/LinkTreeBranch.vue'
 import { calloutIconSvg } from './calloutIcons.js'
@@ -33,6 +34,8 @@ const markdownArticle = ref(null)
 const articleRenderVersion = ref(0)
 let excalidrawMounts = []
 let navigationVersion = 0
+let mermaidRenderCounter = 0
+let mermaidInitialized = false
 const readerWidth = ref(600)
 const themeMode = ref('auto') // auto | light | dark
 const localFullWidth = ref(false)
@@ -142,7 +145,7 @@ onMounted(async () => {
 })
 
 watch(articleRenderVersion, () => {
-  void mountExcalidrawEmbeds()
+  void mountArticleEnhancements()
 }, { flush: 'post' })
 
 onBeforeUnmount(() => {
@@ -170,6 +173,39 @@ async function mountExcalidrawEmbeds() {
 function unmountExcalidrawEmbeds() {
   for (const { app, placeholder } of excalidrawMounts) app.unmount(placeholder)
   excalidrawMounts = []
+}
+
+async function mountArticleEnhancements() {
+  await mountExcalidrawEmbeds()
+  await renderMermaidDiagrams()
+}
+
+async function renderMermaidDiagrams() {
+  await nextTick()
+  const diagrams = markdownArticle.value?.querySelectorAll('.mermaid-diagram:not([data-mermaid-rendered])') || []
+  if (!diagrams.length) return
+
+  if (!mermaidInitialized) {
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })
+    mermaidInitialized = true
+  }
+
+  for (const diagram of diagrams) {
+    const source = diagram.dataset.mermaidSource || ''
+    const id = `obsipub-mermaid-${Date.now()}-${mermaidRenderCounter++}`
+    diagram.dataset.mermaidRendered = 'true'
+    try {
+      const { svg, bindFunctions } = await mermaid.render(id, source)
+      if (!diagram.isConnected) continue
+      diagram.innerHTML = svg
+      bindFunctions?.(diagram)
+    } catch (err) {
+      if (!diagram.isConnected) continue
+      const message = err?.message || String(err)
+      diagram.classList.add('mermaid-error')
+      diagram.innerHTML = `<div class="mermaid-error-message">${escapeHtml(message)}</div>${renderPlainCodeBlock(source, 'mermaid')}`
+    }
+  }
 }
 
 async function loadAuthStatus() {
@@ -628,6 +664,14 @@ function codeLanguage(lang = '') {
 }
 
 function renderCodeBlock(code, lang = '') {
+  if (String(lang).trim().toLowerCase().split(/\s+/)[0] === 'mermaid') {
+    return renderMermaidBlock(code)
+  }
+
+  return renderPlainCodeBlock(code, lang)
+}
+
+function renderPlainCodeBlock(code, lang = '') {
   const language = lang ? ` data-language="${escapeAttr(lang)}"` : ''
   const lineNumberClass = config.value.showLineNumbers ? ' with-line-numbers' : ''
   const codeType = codeLanguage(lang)
@@ -637,6 +681,10 @@ function renderCodeBlock(code, lang = '') {
     .join('')
   const languageIcon = `<span class="code-language-icon language-${escapeAttr(codeType.key)}" title="${escapeAttr(codeType.name)}" aria-label="${escapeAttr(codeType.name)}">${escapeHtml(codeType.glyph)}</span>`
   return `<div class="code-block${lineNumberClass}"${language}>${languageIcon}<button class="copy-code-button" type="button" data-copy-code aria-label="${escapeAttr(t('copy'))}" title="${escapeAttr(t('copy'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><div class="code-block-inner"><pre><code class="language-${escapeAttr(lang)}">${renderedLines}</code></pre></div></div>`
+}
+
+function renderMermaidBlock(code) {
+  return `<div class="mermaid-diagram" data-mermaid-source="${escapeAttr(code)}"><pre><code>${escapeHtml(code)}</code></pre></div>`
 }
 
 function articleBlock(html, sourceLine) {
@@ -681,6 +729,19 @@ function isTableDivider(line) {
   return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))
 }
 
+function isHorizontalRule(line) {
+  return /^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(String(line).trim())
+}
+
+function taskListItem(line) {
+  const match = String(line).match(/^[-*+]\s+\[([^\]])\]\s+(.+)$/)
+  if (!match) return null
+  return {
+    checked: match[1].trim() !== '',
+    text: match[2],
+  }
+}
+
 function renderTable(header, divider, rows, fromPath) {
   const alignments = divider.map(tableAlignment)
   const renderCells = (cells, tag) => header.map((_, index) => {
@@ -706,6 +767,13 @@ function renderMarkdown(source, fromPath) {
       continue
     }
 
+    if (line.trim().startsWith('%%')) {
+      i += 1
+      while (i < lines.length && !lines[i].includes('%%')) i += 1
+      if (i < lines.length) i += 1
+      continue
+    }
+
     const fence = line.match(/^```(.*)$/)
     if (fence) {
       const lang = fence[1].trim()
@@ -714,6 +782,12 @@ function renderMarkdown(source, fromPath) {
       while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++])
       if (i < lines.length) i += 1
       html.push(articleBlock(renderCodeBlock(code.join('\n'), lang), sourceLine))
+      continue
+    }
+
+    if (isHorizontalRule(line)) {
+      html.push(articleBlock('<hr>', sourceLine))
+      i += 1
       continue
     }
 
@@ -749,7 +823,16 @@ function renderMarkdown(source, fromPath) {
 
     if (/^[-*+]\s+/.test(line)) {
       const items = []
-      while (i < lines.length && /^[-*+]\s+/.test(lines[i])) items.push(`<li>${renderInline(lines[i++].replace(/^[-*+]\s+/, ''), fromPath)}</li>`)
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i])) {
+        const task = taskListItem(lines[i])
+        if (task) {
+          const checked = task.checked ? ' checked' : ''
+          items.push(`<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled${checked}>${renderInline(task.text, fromPath)}</li>`)
+          i += 1
+        } else {
+          items.push(`<li>${renderInline(lines[i++].replace(/^[-*+]\s+/, ''), fromPath)}</li>`)
+        }
+      }
       html.push(articleBlock(`<ul>${items.join('')}</ul>`, sourceLine))
       continue
     }
@@ -776,7 +859,9 @@ function renderMarkdown(source, fromPath) {
       !/^(#{1,6})\s+/.test(lines[i]) &&
       !/^>\s*\[!\w+\]/i.test(lines[i]) &&
       !/^[-*+]\s+/.test(lines[i]) &&
-      !/^\d+\.\s+/.test(lines[i])
+      !/^\d+\.\s+/.test(lines[i]) &&
+      !isHorizontalRule(lines[i]) &&
+      !lines[i].trim().startsWith('%%')
     ) {
       paragraph.push(lines[i++])
     }

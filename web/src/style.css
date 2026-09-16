@@ -993,6 +993,13 @@ button {
   text-decoration: none;
 }
 
+.markdown-body mark {
+  border-radius: 0.25em;
+  padding: 0.02em 0.18em;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
 .markdown-body img {
   display: block;
   max-width: 100%;
@@ -1181,6 +1188,59 @@ button {
 
 .excalidraw-error {
   color: var(--danger);
+}
+
+.markdown-body .task-list-item {
+  list-style: none;
+  margin-left: -1.25em;
+}
+
+.markdown-body .task-list-item-checkbox {
+  width: var(--checkbox-size, 16px);
+  height: var(--checkbox-size, 16px);
+  margin: 0 0.55em 0 0;
+  vertical-align: -0.15em;
+  accent-color: var(--accent);
+}
+
+.markdown-body hr {
+  margin: 1.6rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.mermaid-diagram {
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: var(--panel);
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-diagram pre {
+  width: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.mermaid-diagram.mermaid-error {
+  display: block;
+  border-color: var(--danger);
+}
+
+.mermaid-error-message {
+  margin-bottom: 0.75rem;
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .markdown-body code {

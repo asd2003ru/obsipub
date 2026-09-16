@@ -91,6 +91,20 @@ test('nested bold and italic with separate markers', () => {
   assert.equal(parseEmphasis('**bold** and *italic*'), '<strong>bold</strong> and <em>italic</em>')
 })
 
+test('bold italic with triple markers', () => {
+  assert.equal(parseEmphasis('***bold italic***'), '<strong><em>bold italic</em></strong>')
+  assert.equal(parseEmphasis('___bold italic___'), '<strong><em>bold italic</em></strong>')
+})
+
+test('highlight with double equals', () => {
+  assert.equal(parseEmphasis('==marked=='), '<mark>marked</mark>')
+  assert.equal(parseEmphasis('==**important**=='), '<mark><strong>important</strong></mark>')
+})
+
+test('comments are hidden from rendered inline text', () => {
+  assert.equal(parseEmphasis('before %%hidden **text**%% after'), 'before  after')
+})
+
 test('underline content can contain emphasis', () => {
   assert.equal(parseEmphasis('<u>**bold underline**</u>'), '<u><strong>bold underline</strong></u>')
 })

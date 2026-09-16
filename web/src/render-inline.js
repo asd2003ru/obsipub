@@ -43,6 +43,16 @@ export function parseEmphasis(text) {
       continue
     }
 
+    // Obsidian comments are hidden in rendered view.
+    if (text.slice(i, i + 2) === '%%') {
+      const end = text.indexOf('%%', i + 2)
+      if (end !== -1) {
+        flushPlain()
+        i = end + 2
+        continue
+      }
+    }
+
     // Safe underline HTML tag only
     if (text.slice(i, i + 3) === '<u>') {
       const end = text.indexOf('</u>', i + 3)
@@ -55,6 +65,30 @@ export function parseEmphasis(text) {
       }
     }
 
+    // Bold italic ***...***
+    if (text.slice(i, i + 3) === '***') {
+      const end = findClose(i + 3, '***')
+      if (end !== -1) {
+        flushPlain()
+        const inner = text.slice(i + 3, end)
+        result += `<strong><em>${parseEmphasis(inner)}</em></strong>`
+        i = end + 3
+        continue
+      }
+    }
+
+    // Bold italic ___...___
+    if (text.slice(i, i + 3) === '___') {
+      const end = findClose(i + 3, '___')
+      if (end !== -1) {
+        flushPlain()
+        const inner = text.slice(i + 3, end)
+        result += `<strong><em>${parseEmphasis(inner)}</em></strong>`
+        i = end + 3
+        continue
+      }
+    }
+
     // Strikethrough ~~...~~
     if (text.slice(i, i + 2) === '~~') {
       const end = findClose(i + 2, '~~')
@@ -62,6 +96,18 @@ export function parseEmphasis(text) {
         flushPlain()
         const inner = text.slice(i + 2, end)
         result += `<s>${parseEmphasis(inner)}</s>`
+        i = end + 2
+        continue
+      }
+    }
+
+    // Highlight ==...==
+    if (text.slice(i, i + 2) === '==') {
+      const end = findClose(i + 2, '==')
+      if (end !== -1) {
+        flushPlain()
+        const inner = text.slice(i + 2, end)
+        result += `<mark>${parseEmphasis(inner)}</mark>`
         i = end + 2
         continue
       }

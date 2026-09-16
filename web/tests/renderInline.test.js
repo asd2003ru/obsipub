@@ -1,18 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-
-function unescapeMarkdownPunctuation(text) {
-  return String(text).replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1')
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
+import { parseEmphasis, escapeHtml, unescapeMarkdownPunctuation } from '../src/render-inline.js'
 
 test('strips backslash before Markdown punctuation', () => {
   assert.equal(unescapeMarkdownPunctuation('a \\. b'), 'a . b')
@@ -39,7 +27,6 @@ test('renders escaped punctuation visibly', () => {
 })
 
 test('heading escaped punctuation renders visibly', () => {
-  // Source heading text: #### 1\. must render visibly as 1-dot.
   assert.equal(unescapeMarkdownPunctuation('1\\.'), '1.')
   assert.equal(unescapeMarkdownPunctuation('Source \\. must show .'), 'Source . must show .')
 })
@@ -47,4 +34,67 @@ test('heading escaped punctuation renders visibly', () => {
 test('preserves path backslashes and code spans', () => {
   assert.equal(unescapeMarkdownPunctuation('C:\\folder'), 'C:\\folder')
   assert.equal(unescapeMarkdownPunctuation('line\\n'), 'line\\n')
+})
+
+// Inline emphasis and underline tests
+
+test('bold with double asterisks', () => {
+  assert.equal(parseEmphasis('**bold**'), '<strong>bold</strong>')
+})
+
+test('bold with double underscores', () => {
+  assert.equal(parseEmphasis('__bold__'), '<strong>bold</strong>')
+})
+
+test('italic with single asterisk', () => {
+  assert.equal(parseEmphasis('*italic*'), '<em>italic</em>')
+})
+
+test('italic with single underscore', () => {
+  assert.equal(parseEmphasis('_italic_'), '<em>italic</em>')
+})
+
+test('strikethrough with double tildes', () => {
+  assert.equal(parseEmphasis('~~strikethrough~~'), '<s>strikethrough</s>')
+})
+
+test('underline with safe HTML tag', () => {
+  assert.equal(parseEmphasis('<u>underlined</u>'), '<u>underlined</u>')
+})
+
+test('escaped asterisk remains literal', () => {
+  assert.equal(parseEmphasis('a \\* b'), 'a * b')
+})
+
+test('escaped underscore remains literal', () => {
+  assert.equal(parseEmphasis('x \\_ y'), 'x _ y')
+})
+
+test('escaped punctuation does not trigger emphasis', () => {
+  assert.equal(parseEmphasis('a \\*b\\* c'), 'a *b* c')
+})
+
+test('escaped punctuation still renders visibly inside inline parser', () => {
+  assert.equal(parseEmphasis('Source \\. and escaped \\!'), 'Source . and escaped !')
+})
+
+test('arbitrary HTML is escaped, only <u> allowed', () => {
+  assert.equal(parseEmphasis('<script>alert(1)</script>'), '&lt;script&gt;alert(1)&lt;/script&gt;')
+  assert.equal(parseEmphasis('<b>bold</b>'), '&lt;b&gt;bold&lt;/b&gt;')
+})
+
+test('backtick literal preserved and not treated as emphasis trigger', () => {
+  assert.equal(parseEmphasis('`text`'), '`text`')
+})
+
+test('nested bold and italic with separate markers', () => {
+  assert.equal(parseEmphasis('**bold** and *italic*'), '<strong>bold</strong> and <em>italic</em>')
+})
+
+test('underline content can contain emphasis', () => {
+  assert.equal(parseEmphasis('<u>**bold underline**</u>'), '<u><strong>bold underline</strong></u>')
+})
+
+test('literal text with punctuation is escaped', () => {
+  assert.equal(parseEmphasis('a <b> c'), 'a &lt;b&gt; c')
 })

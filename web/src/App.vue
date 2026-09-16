@@ -6,6 +6,7 @@ import { calloutIconSvg } from './calloutIcons.js'
 import { locale, t } from './i18n.js'
 import { isExternalUrl, publicationBasePath, stripPublicationBase, underPublication } from './paths.js'
 import { copyableMarkdown, stripFrontMatter } from './markdown-utils.js'
+import { parseEmphasis } from './render-inline.js'
 
 const config = ref({ ready: false, index: '', theme: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
 const auth = ref({ ready: false, protected: false, authenticated: false })
@@ -796,7 +797,7 @@ function renderInline(text, fromPath) {
   let match
 
   while ((match = tokenRe.exec(text))) {
-    result += escapeHtml(unescapeMarkdownPunctuation(text.slice(last, match.index)))
+    result += parseEmphasis(text.slice(last, match.index))
     const [raw] = match
 
     if (raw.startsWith('`')) {
@@ -835,7 +836,7 @@ function renderInline(text, fromPath) {
     last = match.index + raw.length
   }
 
-  result += escapeHtml(unescapeMarkdownPunctuation(text.slice(last)))
+  result += parseEmphasis(text.slice(last))
   return result
 }
 </script>

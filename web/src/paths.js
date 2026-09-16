@@ -32,3 +32,12 @@ export function isExternalUrl(value) {
   const url = String(value || '').trim()
   return /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(url)
 }
+
+/**
+ * Return true for links that should open as ObsiPub notes. Obsidian wiki links
+ * may also target attachments (SVG/PDF/etc.); those must stay raw asset links.
+ */
+export function isMarkdownNoteTarget(value) {
+  const target = String(value || '').trim()
+  return /\.md(?:#.*)?$/i.test(target) || !/\.[^/.#]+(?:#.*)?$/.test(target)
+}

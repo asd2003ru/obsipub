@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isExternalUrl, publicationBasePath, stripPublicationBase, underPublication } from '../src/paths.js'
+import { isExternalUrl, isMarkdownNoteTarget, publicationBasePath, stripPublicationBase, underPublication } from '../src/paths.js'
 
 test('derives a publication prefix from the current pathname', () => {
   assert.equal(publicationBasePath('/docs/'), '/docs')
@@ -92,4 +92,13 @@ test('keeps external and fragment links out of publication URL rewriting', () =>
   for (const value of ['/assets/image.png', 'notes/start.md', 'relative/file']) {
     assert.equal(isExternalUrl(value), false, value)
   }
+})
+
+test('classifies note links separately from attachment wiki links', () => {
+  assert.equal(isMarkdownNoteTarget('Note'), true)
+  assert.equal(isMarkdownNoteTarget('folder/Note.md'), true)
+  assert.equal(isMarkdownNoteTarget('folder/Note.md#Heading'), true)
+  assert.equal(isMarkdownNoteTarget('diagram.svg'), false)
+  assert.equal(isMarkdownNoteTarget('diagram.drawio.svg'), false)
+  assert.equal(isMarkdownNoteTarget('manual.pdf#page=2'), false)
 })

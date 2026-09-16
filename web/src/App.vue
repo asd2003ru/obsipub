@@ -6,7 +6,7 @@ import DrawioPreview from './components/DrawioPreview.vue'
 import LinkTreeBranch from './components/LinkTreeBranch.vue'
 import { calloutIconSvg } from './calloutIcons.js'
 import { locale, t } from './i18n.js'
-import { isExternalUrl, publicationBasePath, stripPublicationBase, underPublication } from './paths.js'
+import { isExternalUrl, isMarkdownNoteTarget, publicationBasePath, stripPublicationBase, underPublication } from './paths.js'
 import { copyableMarkdown, stripFrontMatter } from './markdown-utils.js'
 import { parseEmphasis } from './render-inline.js'
 
@@ -950,7 +950,7 @@ function renderInline(text, fromPath) {
       const href = match[5].trim()
       if (isExternalUrl(href)) {
         result += `<a href="${escapeAttr(href)}" target="_blank" rel="noreferrer">${renderInline(label, fromPath)}</a>`
-      } else if (/\.md(?:#.*)?$/i.test(href) || !/\.[^/.#]+(?:#.*)?$/.test(href)) {
+      } else if (isMarkdownNoteTarget(href)) {
         const target = noteTarget(href, fromPath)
         result += `<a href="${escapeAttr(noteRoutePath(target))}" data-note-path="${escapeAttr(target)}">${renderInline(label, fromPath)}</a>`
       } else {
@@ -969,9 +969,14 @@ function renderInline(text, fromPath) {
         result += `<img class="embed" src="${escapeAttr(rawUrl(source, fromPath))}" alt="${escapeAttr(target)}">`
       }
     } else if (match[7] !== undefined) {
-      const target = noteTarget(match[7].trim(), fromPath)
+      const source = match[7].trim()
       const label = match[8] || match[7]
-      result += `<a href="${escapeAttr(noteRoutePath(target))}" data-note-path="${escapeAttr(target)}">${escapeHtml(label)}</a>`
+      if (isMarkdownNoteTarget(source)) {
+        const target = noteTarget(source, fromPath)
+        result += `<a href="${escapeAttr(noteRoutePath(target))}" data-note-path="${escapeAttr(target)}">${escapeHtml(label)}</a>`
+      } else {
+        result += `<a href="${escapeAttr(rawUrl(source, fromPath))}">${escapeHtml(label)}</a>`
+      }
     }
 
     last = match.index + raw.length

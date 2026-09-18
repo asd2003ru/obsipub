@@ -28,6 +28,13 @@ test("handles .theme-light and .theme-dark selectors", () => {
   assert.ok(result.css.includes("--accent: #6b8cce;"));
 });
 
+test("uses generic body variables for both modes", () => {
+  const result = convert("body { --background-primary: #fff; --interactive-accent: #245aaa; }");
+  assert.ok(result.css.includes("body.theme-light"));
+  assert.ok(result.css.includes("body.theme-dark"));
+  assert.equal(result.warnings.length, 0);
+});
+
 test("allows resolved imports and rejects remaining url() assets", async () => {
   const imported = await inlineLocalImports(
     "@import 'colors.css'; body.theme-light { --background-primary: #fff; }",
@@ -65,8 +72,9 @@ test("handles missing mode with warning", () => {
   assert.ok(result.css.includes("body.theme-light {"));
 });
 
-test("throws when no colors found in either mode", () => {
-  assert.throws(() => convert("body.theme-light {}"), /No supported theme colors found/);
+test("warns when no supported colors are found", () => {
+  const result = convert("body.theme-light {}")
+  assert.ok(result.warnings.some((w) => w.includes("No supported literal colors")));
 });
 
 test("safeBasename strips unsafe chars and prevents traversal", () => {

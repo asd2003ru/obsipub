@@ -128,6 +128,7 @@ function t(key: string): string {
     "themeConverterDesc": "Выберите CSS-файл из .obsidian/themes. Переносит цвета в тему ObsiPub и перезаписывает одноимённый файл.",
     "themeConverterBtn": "Конвертировать в тему ObsiPub",
     "themeConverterSuccess": "Тема конвертирована в {file}",
+    "themeConverterWarning": "Тема сохранена с предупреждениями: {count}",
     "themeConverterFailed": "Ошибка конвертации темы",
     "themeConverterNoThemes": "Темы в .obsidian/themes не найдены.",
   };
@@ -228,6 +229,7 @@ function t(key: string): string {
     "themeConverterDesc": "Select a CSS file from .obsidian/themes. Converts its colors to an ObsiPub theme and overwrites a file with the same name.",
     "themeConverterBtn": "Convert to ObsiPub theme",
     "themeConverterSuccess": "Theme converted to {file}",
+    "themeConverterWarning": "Theme saved with {count} warning(s)",
     "themeConverterFailed": "Theme conversion failed",
     "themeConverterNoThemes": "No themes found in .obsidian/themes.",
   };
@@ -1277,6 +1279,9 @@ class ObsipubSettingTab extends PluginSettingTab {
           const destPath = normalizePath(`${destDir}/${basename}`);
           await adapter.write(destPath, result.css);
           new Notice(t("themeConverterSuccess").replace("{file}", basename));
+          if (result.warnings.length > 0) {
+            new Notice(t("themeConverterWarning").replace("{count}", String(result.warnings.length)));
+          }
         } catch (e) {
           console.error(t("themeConverterFailed"), e);
           new Notice(`${t("themeConverterFailed")} — ${e instanceof Error ? e.message : String(e)}`);

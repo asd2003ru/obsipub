@@ -128,7 +128,7 @@ export async function inlineCssUrls(
 export function convert(css: string): ConvertResult {
   const warnings: string[] = [];
   css = css.replace(/@import[^;]*;/gi, "");
-  if (/url\s*\(\s*["']?(?!data:)/i.test(css)) {
+  if (/url\s*\(\s*(?!(?:["']?data:))/i.test(css)) {
     throw new Error("Theme contains url(); ObsiPub themes must be self-contained");
   }
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -136,13 +136,15 @@ export function convert(css: string): ConvertResult {
     light: new Map(),
     dark: new Map(),
   };
+  const base = new Map<string, string>();
   const blockRegex = /([^{}]+)\{([^{}]*)\}/g;
   let match: RegExpExecArray | null;
   while ((match = blockRegex.exec(clean)) !== null) {
     const selector = match[1].trim();
     const modeMatch = /^(?:body)?\.theme-(light|dark)$/.exec(selector);
     const mode = modeMatch ? modeMatch[1] : null;
-    if (!mode) {
+    const isBase = selector === "body" || selector === ":root";
+    if (!mode && !isBase) {
       warnings.push(`Skipped selector: ${selector}`);
       continue;
     }
@@ -157,9 +159,14 @@ export function convert(css: string): ConvertResult {
         continue;
       }
       for (const output of tokens[name]) {
-        modes[mode].set(output, value);
+        if (mode) modes[mode].set(output, value);
+        else base.set(output, value);
       }
     }
+  }
+  for (const [name, value] of base) {
+    if (!modes.light.has(name)) modes.light.set(name, value);
+    if (!modes.dark.has(name)) modes.dark.set(name, value);
   }
   const lines: string[] = [
     "/* ObsiPub color tokens converted from an Obsidian theme. Review before publishing. */",
@@ -175,9 +182,6 @@ export function convert(css: string): ConvertResult {
       lines.push(`  ${name}: ${value};`);
     }
     lines.push("}");
-  }
-  if ((!modes.light || !modes.light.size) && (!modes.dark || !modes.dark.size)) {
-    throw new Error("No supported theme colors found");
   }
   return { css: lines.join("\n") + "\n", warnings };
 }

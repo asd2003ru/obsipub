@@ -1,10 +1,14 @@
 import {
   App,
+  Component,
+  FileSystemAdapter,
   getIcon,
   getLanguage,
+  MarkdownRenderer,
   MarkdownView,
   Modal,
   Notice,
+  Platform,
   Plugin,
   PluginSettingTab,
   Setting,
@@ -27,6 +31,17 @@ function isRussian(): boolean {
   } catch {
     return false;
   }
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function resolveThemeMode(defaultTheme: ThemeChoice, documentBody: HTMLElement | null): "light" | "dark" {
+  if (defaultTheme === "dark") return "dark";
+  if (defaultTheme === "light") return "light";
+  if (documentBody?.classList.contains("theme-dark")) return "dark";
+  return "light";
 }
 
 function t(key: string): string {
@@ -368,6 +383,7 @@ export default class ObsipubPlugin extends Plugin {
         initialThemeValue = "classic";
       }
 
+      const markdownText = await this.app.vault.read(root);
       const options = await new PublicationOptionsModal(
         this.app,
         this.settings.serverUrl,
@@ -380,7 +396,10 @@ export default class ObsipubPlugin extends Plugin {
         initialExpiresAt,
         initialThemeValue,
         initialThemeChoice,
-        customThemes
+        customThemes,
+        this,
+        markdownText,
+        root.path
       ).openAndGetValue();
       if (!options) return;
       new Notice(t("publishCollecting"));
@@ -659,7 +678,11 @@ class PublicationOptionsModal extends Modal {
   private resolveValue!: (value: PublicationOptions | undefined) => void;
   private settled = false;
 
-  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialDefaultTheme: ThemeChoice, initialProtected: boolean, initialExpiresAt: string, initialTheme: string = "", savedThemeChoice: string = "", customThemes: string[] = []) {
+  private readonly plugin?: ObsipubPlugin;
+  private readonly sourceMarkdown?: string;
+  private readonly sourcePath?: string;
+
+  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialDefaultTheme: ThemeChoice, initialProtected: boolean, initialExpiresAt: string, initialTheme: string = "", savedThemeChoice: string = "", customThemes: string[] = [], plugin?: ObsipubPlugin, sourceMarkdown?: string, sourcePath?: string) {
     super(app);
     this.serverUrl = serverUrl;
     this.initialPrefix = initialPrefix;
@@ -672,6 +695,9 @@ class PublicationOptionsModal extends Modal {
     this.initialTheme = initialTheme;
     this.savedThemeChoice = savedThemeChoice;
     this.customThemes = customThemes;
+    this.plugin = plugin;
+    this.sourceMarkdown = sourceMarkdown;
+    this.sourcePath = sourcePath;
   }
 
   openAndGetValue(): Promise<PublicationOptions | undefined> {
@@ -752,44 +778,123 @@ class PublicationOptionsModal extends Modal {
     previewBtnRow.style.marginTop = "0.25rem";
     const previewBtn = previewBtnRow.createEl("button", { text: t("themePreview"), cls: "mod-muted" });
     previewBtn.style.fontSize = "0.85em";
-    const previewContainer = previewBtnRow.createDiv({ cls: "obsipub-preview-container" });
-    previewContainer.style.marginTop = "0.5rem";
+    const previewStatus = previewBtnRow.createDiv({ cls: "obsipub-preview-status" });
+    previewStatus.style.marginTop = "0.5rem";
+    previewStatus.style.display = "none";
+    previewStatus.style.fontSize = "0.85em";
 
     previewBtn.addEventListener("click", async () => {
-      previewContainer.empty();
-      const selectedTheme = themeDesign;
-      let cssText: string;
-      if (selectedTheme === "classic" || selectedTheme === "contrast") {
-        cssText = builtInThemes[selectedTheme];
-      } else if (this.customThemes.includes(selectedTheme)) {
-        try {
-          cssText = await this.app.vault.adapter.read(`.obsidian/obsipub/themes/${selectedTheme}`);
-        } catch {
-          previewContainer.setText(t("themeUnavailable"));
+      previewStatus.empty();
+      previewStatus.style.display = "none";
+      try {
+        const selectedTheme = themeDesign;
+        let cssText: string;
+        if (selectedTheme === "classic" || selectedTheme === "contrast") {
+          cssText = builtInThemes[selectedTheme];
+        } else if (this.customThemes.includes(selectedTheme)) {
+          try {
+            cssText = await this.app.vault.adapter.read(`.obsidian/obsipub/themes/${selectedTheme}`);
+          } catch {
+            new Notice(t("themeUnavailable"));
+            previewStatus.setText(t("themeUnavailable"));
+            previewStatus.style.display = "block";
+            return;
+          }
+        } else {
+          new Notice(t("themeUnavailable"));
+          previewStatus.setText(t("themeUnavailable"));
+          previewStatus.style.display = "block";
           return;
         }
-      } else {
-        previewContainer.setText(t("themeUnavailable"));
-        return;
-      }
 
-      previewContainer.createEl("p", { text: t("themePreviewSample") });
-      for (const mode of ["light", "dark"] as const) {
-        previewContainer.createEl("strong", { text: mode === "light" ? "Light" : "Dark" });
-        const iframe = document.createElement("iframe");
-        iframe.setAttribute("sandbox", "allow-same-origin");
-        iframe.style.width = "100%";
-        iframe.style.height = "220px";
-        iframe.style.border = "1px solid var(--background-modifier-border)";
-        iframe.srcdoc = `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"></head><body class="theme-${mode}"><main class="markdown-body markdown-rendered"><h1>Heading</h1><p>Text and <a href="#">a link</a>.</p><div class="callout" data-callout="note"><div class="callout-title">Note</div><div class="callout-content">Example callout</div></div></main></body></html>`;
-        iframe.addEventListener("load", () => {
-          const doc = iframe.contentDocument;
-          if (!doc) return;
-          const style = doc.createElement("style");
-          style.textContent = `body{font-family:system-ui;margin:0;padding:18px;background:var(--obs-canvas,var(--bg,#fff));color:var(--obs-text,var(--text,#222))}a{color:var(--link-color,var(--accent,#7544a0))}.callout{padding:10px;border:1px solid var(--accent,#7544a0);background:var(--panel,#eee)}` + cssText;
-          doc.head.appendChild(style);
-        }, { once: true });
-        previewContainer.appendChild(iframe);
+        if (!this.plugin || !this.sourceMarkdown) {
+          new Notice("Preview unavailable: no active article.");
+          previewStatus.setText("Preview unavailable: no active article.");
+          previewStatus.style.display = "block";
+          return;
+        }
+
+        const markdown = this.sourceMarkdown;
+        const sourcePath = this.sourcePath || "";
+        const renderEl = document.createElement("div");
+        renderEl.style.position = "absolute";
+        renderEl.style.opacity = "0";
+        renderEl.style.pointerEvents = "none";
+        renderEl.style.zIndex = "-1";
+        document.body.appendChild(renderEl);
+
+        await MarkdownRenderer.render(this.app, markdown, renderEl, sourcePath, this.plugin);
+        const articleHtml = renderEl.innerHTML;
+        renderEl.remove();
+
+        const modeClass = resolveThemeMode(defaultTheme, document.body);
+        const modeName = modeClass === "dark" ? "Dark" : "Light";
+        const themeName = selectedTheme;
+        const bannerText = `Theme: ${themeName} (${modeName})`;
+
+        const baseCssString = `body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:1.5rem;background:var(--bg,#fff);color:var(--text,#222);line-height:1.6;}.markdown-body{max-width:720px;margin:0 auto;}.markdown-body h1,.markdown-body h2,.markdown-body h3{font-family:Georgia,"Times New Roman",serif;letter-spacing:-0.03em;line-height:1.15;margin-top:1.5em;margin-bottom:0.5em;}.markdown-body p{line-height:1.75;margin-bottom:1em;}.markdown-body a{color:var(--link-color,var(--accent,#7544a0));text-decoration-thickness:0.1em;}.markdown-rendered .callout{padding:0.85rem 1.1rem;border-left-width:4px;border-radius:0.35rem;background:var(--panel,#f5efe6);border-left-color:var(--accent,#7544a0);}.callout-title{font-weight:bold;padding-bottom:0.3rem;}`;
+
+        const htmlDoc = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(bannerText)}</title>
+<style>${baseCssString}\n${cssText}</style>
+</head>
+<body class="theme-${modeClass}">
+<div style="margin-bottom:1rem;padding:0.75rem;background:var(--panel,#f5efe6);border:1px solid var(--border,#dccfb5);border-radius:0.35rem;font-family:system-ui,sans-serif;font-size:0.9rem;color:var(--text,#222);">Theme: <strong>${escapeHtml(themeName)}</strong> — Mode: <strong>${escapeHtml(modeName)}</strong></div>
+<main class="markdown-body markdown-rendered">${articleHtml}</main>
+</body>
+</html>`;
+
+        const adapter = this.app.vault.adapter;
+        const previewDir = ".obsidian/obsipub";
+        const previewPath = ".obsidian/obsipub/preview.html";
+        try {
+          if (!(await adapter.exists(previewDir))) await adapter.mkdir(previewDir);
+          await adapter.write(previewPath, htmlDoc);
+        } catch (e) {
+          console.error("Failed to write preview file:", e);
+          new Notice(`Preview failed: ${e instanceof Error ? e.message : String(e)}`);
+          previewStatus.setText(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+          previewStatus.style.display = "block";
+          return;
+        }
+
+        const fileUrl = adapter instanceof FileSystemAdapter ? encodeURI("file://" + adapter.getFullPath(previewPath)) : null;
+        if (Platform.isDesktopApp && fileUrl) {
+          try {
+            const requireLike = (globalThis as any).require;
+            if (typeof requireLike === "function") {
+              const electronModule = requireLike("electron");
+              if (electronModule && electronModule.shell && typeof electronModule.shell.openExternal === "function") {
+                electronModule.shell.openExternal(fileUrl);
+                new Notice("Preview opened in default browser.");
+                previewStatus.setText("Preview opened in default browser.");
+                previewStatus.style.display = "block";
+                return;
+              }
+            }
+          } catch {
+            // Ignore runtime errors from require bridge
+          }
+          window.open(fileUrl, "_blank");
+          new Notice("Preview opened.");
+          previewStatus.setText("Preview opened.");
+          previewStatus.style.display = "block";
+        } else {
+          const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(htmlDoc);
+          window.open(dataUrl, "_blank");
+          new Notice("Preview opened.");
+          previewStatus.setText("Preview opened.");
+          previewStatus.style.display = "block";
+        }
+      } catch (e) {
+        console.error("Preview error:", e);
+        new Notice(`Preview failed — ${e instanceof Error ? e.message : String(e)}`);
+        previewStatus.setText(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+        previewStatus.style.display = "block";
       }
     });
 

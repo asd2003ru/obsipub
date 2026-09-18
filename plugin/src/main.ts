@@ -1,14 +1,10 @@
 import {
   App,
-  Component,
-  FileSystemAdapter,
   getIcon,
   getLanguage,
-  MarkdownRenderer,
   MarkdownView,
   Modal,
   Notice,
-  Platform,
   Plugin,
   PluginSettingTab,
   Setting,
@@ -16,9 +12,8 @@ import {
   normalizePath
 } from "obsidian";
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
-import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice } from "./publish-options";
+import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice, randomPublicationPrefix } from "./publish-options";
 import { hasExternalThemeResources, isCustomThemeFileName } from "./theme-utils";
-import { builtInThemes, webBaseCss } from "./theme-css";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -31,17 +26,6 @@ function isRussian(): boolean {
   } catch {
     return false;
   }
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-function resolveThemeMode(defaultTheme: ThemeChoice, documentBody: HTMLElement | null): "light" | "dark" {
-  if (defaultTheme === "dark") return "dark";
-  if (defaultTheme === "light") return "light";
-  if (documentBody?.classList.contains("theme-dark")) return "dark";
-  return "light";
 }
 
 function t(key: string): string {
@@ -555,6 +539,49 @@ export default class ObsipubPlugin extends Plugin {
     return parsePublicationResponse(await response.json());
   }
 
+  private async uploadPreviewArchive(
+    root: TFile,
+    themeChoice: string,
+    defaultTheme: ThemeChoice,
+    showLineNumbers: boolean,
+    showArticleLineNumbers: boolean,
+    fullWidth: boolean
+  ): Promise<string> {
+    const { files, tree } = this.collectDependencies(root);
+    const rawEntries = await this.readFiles(files);
+    const entries: ArchiveEntry[] = rawEntries.map((entry) => {
+      if (entry.path.endsWith(".md")) {
+        return { ...entry, bytes: sanitizeMarkdownFrontmatter(entry.bytes) };
+      }
+      return entry;
+    });
+    const theme = await this.packageTheme(entries, themeChoice);
+    const index = {
+      version: 1 as const,
+      index: root.path,
+      theme,
+      defaultTheme: normalizeTheme(defaultTheme),
+      showLineNumbers,
+      showArticleLineNumbers: !!showArticleLineNumbers,
+      fullWidth: !!fullWidth,
+      tree
+    };
+    const zip = createPublishZip(entries, index);
+    const prefix = randomPublicationPrefix();
+    const options: PublicationOptions = {
+      prefix,
+      password: "",
+      ttl: "30",
+      showLineNumbers,
+      showArticleLineNumbers: !!showArticleLineNumbers,
+      fullWidth: !!fullWidth,
+      defaultTheme,
+      theme: themeChoice
+    };
+    const publication = await this.upload(zip, options);
+    return publicationURL(this.settings.serverUrl, publication.prefix);
+  }
+
   private async managePublications(): Promise<void> {
     if (!this.settings.serverUrl.trim()) {
       new Notice(t("publishConfigureServerUrl"));
@@ -787,110 +814,31 @@ class PublicationOptionsModal extends Modal {
       previewStatus.empty();
       previewStatus.style.display = "none";
       try {
-        const selectedTheme = themeDesign;
-        let cssText: string;
-        if (selectedTheme === "classic" || selectedTheme === "contrast") {
-          cssText = builtInThemes[selectedTheme];
-        } else if (this.customThemes.includes(selectedTheme)) {
-          try {
-            cssText = await this.app.vault.adapter.read(`.obsidian/obsipub/themes/${selectedTheme}`);
-          } catch {
-            new Notice(t("themeUnavailable"));
-            previewStatus.setText(t("themeUnavailable"));
-            previewStatus.style.display = "block";
-            return;
-          }
-        } else {
-          new Notice(t("themeUnavailable"));
-          previewStatus.setText(t("themeUnavailable"));
-          previewStatus.style.display = "block";
-          return;
-        }
-
-        if (!this.plugin || !this.sourceMarkdown) {
+        if (!this.plugin || !this.sourcePath) {
           new Notice("Preview unavailable: no active article.");
           previewStatus.setText("Preview unavailable: no active article.");
           previewStatus.style.display = "block";
           return;
         }
-
-        const markdown = this.sourceMarkdown;
-        const sourcePath = this.sourcePath || "";
-        const renderEl = document.createElement("div");
-        renderEl.style.position = "absolute";
-        renderEl.style.opacity = "0";
-        renderEl.style.pointerEvents = "none";
-        renderEl.style.zIndex = "-1";
-        document.body.appendChild(renderEl);
-
-        await MarkdownRenderer.render(this.app, markdown, renderEl, sourcePath, this.plugin);
-        const articleHtml = renderEl.innerHTML;
-        renderEl.remove();
-
-        const modeClass = resolveThemeMode(defaultTheme, document.body);
-        const modeName = modeClass === "dark" ? "Dark" : "Light";
-        const themeName = selectedTheme;
-        const bannerText = `Theme: ${themeName} (${modeName})`;
-
-        const baseCssString = webBaseCss;
-        const calloutFallback = `.markdown-rendered .callout{border:1px solid var(--border,#dccfb5);border-left-width:4px;border-style:solid;}`;
-
-        const htmlDoc = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(bannerText)}</title>
-<style>${baseCssString}\n${cssText}\n${calloutFallback}</style>
-</head>
-<body class="theme-${modeClass}">
-<div style="margin-bottom:1rem;padding:0.75rem;background:var(--panel,#f5efe6);border:1px solid var(--border,#dccfb5);border-radius:0.35rem;font-family:system-ui,sans-serif;font-size:0.9rem;color:var(--text,#222);">Theme: <strong>${escapeHtml(themeName)}</strong> — Mode: <strong>${escapeHtml(modeName)}</strong></div>
-<main class="markdown-body markdown-rendered">${articleHtml}</main>
-</body>
-</html>`;
-
-        const adapter = this.app.vault.adapter;
-        const previewDir = ".obsidian/obsipub";
-        const previewPath = ".obsidian/obsipub/preview.html";
-        try {
-          if (!(await adapter.exists(previewDir))) await adapter.mkdir(previewDir);
-          await adapter.write(previewPath, htmlDoc);
-        } catch (e) {
-          console.error("Failed to write preview file:", e);
-          new Notice(`Preview failed: ${e instanceof Error ? e.message : String(e)}`);
-          previewStatus.setText(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+        const rootFile = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
+        if (!(rootFile instanceof TFile) || rootFile.extension !== "md") {
+          new Notice("Preview unavailable: no markdown file.");
+          previewStatus.setText("Preview unavailable: no markdown file.");
           previewStatus.style.display = "block";
           return;
         }
-
-        const fileUrl = adapter instanceof FileSystemAdapter ? encodeURI("file://" + adapter.getFullPath(previewPath)) : null;
-        if (Platform.isDesktopApp && fileUrl) {
-          try {
-            const requireLike = (globalThis as any).require;
-            if (typeof requireLike === "function") {
-              const electronModule = requireLike("electron");
-              if (electronModule && electronModule.shell && typeof electronModule.shell.openExternal === "function") {
-                electronModule.shell.openExternal(fileUrl);
-                new Notice("Preview opened in default browser.");
-                previewStatus.setText("Preview opened in default browser.");
-                previewStatus.style.display = "block";
-                return;
-              }
-            }
-          } catch {
-            // Ignore runtime errors from require bridge
-          }
-          window.open(fileUrl, "_blank");
-          new Notice("Preview opened.");
-          previewStatus.setText("Preview opened.");
-          previewStatus.style.display = "block";
-        } else {
-          const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(htmlDoc);
-          window.open(dataUrl, "_blank");
-          new Notice("Preview opened.");
-          previewStatus.setText("Preview opened.");
-          previewStatus.style.display = "block";
-        }
+        const url = await this.plugin.uploadPreviewArchive(
+          rootFile,
+          themeDesign,
+          defaultTheme,
+          showLineNumbers,
+          showArticleLineNumbers,
+          fullWidth
+        );
+        window.open(url, "_blank");
+        new Notice("Preview opened.");
+        previewStatus.setText("Preview opened.");
+        previewStatus.style.display = "block";
       } catch (e) {
         console.error("Preview error:", e);
         new Notice(`Preview failed — ${e instanceof Error ? e.message : String(e)}`);

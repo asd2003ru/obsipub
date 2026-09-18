@@ -173,12 +173,12 @@ test("rewriteFrontmatterWithObsipub removes existing nested obsipub block safely
   assert.ok(!result.includes("  url: old"));
 });
 
-test("preview upload headers use random prefix, 30-second TTL, and empty password", () => {
+test("preview upload headers use random prefix, 60-second TTL, and empty password", () => {
   const prefix = randomPublicationPrefix();
   assert.equal(isValidPublicationPrefix(prefix), true);
   assert.ok(prefix.startsWith("pub-"));
-  const headers = buildPublicationUploadHeaders("api-key", { prefix, password: "", ttl: "30" });
-  assert.equal(headers["X-ObsiPub-TTL"], "30");
+  const headers = buildPublicationUploadHeaders("api-key", { prefix, password: "", ttl: "60" });
+  assert.equal(headers["X-ObsiPub-TTL"], "60");
   assert.equal(headers["X-ObsiPub-Password"], "");
   assert.equal(headers["X-ObsiPub-Prefix"], prefix);
   assert.equal(headers["X-API-Key"], "api-key");

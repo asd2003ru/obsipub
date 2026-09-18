@@ -571,7 +571,7 @@ export default class ObsipubPlugin extends Plugin {
     const options: PublicationOptions = {
       prefix,
       password: "",
-      ttl: "30",
+      ttl: "60",
       showLineNumbers,
       showArticleLineNumbers: !!showArticleLineNumbers,
       fullWidth: !!fullWidth,

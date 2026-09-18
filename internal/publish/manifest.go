@@ -169,12 +169,18 @@ func (m Manifest) Validate(root string) error {
 		return fmt.Errorf("invalid default theme: %q", m.DefaultTheme)
 	}
 	if m.Theme != "" {
-		theme, err := normalizePath(m.Theme)
-		if err != nil || !strings.HasPrefix(theme, ".themes/") || !strings.EqualFold(filepath.Ext(theme), ".css") {
-			return fmt.Errorf("invalid theme entry")
-		}
-		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(theme))); err != nil {
-			return fmt.Errorf("theme entry %q: %w", theme, err)
+		if m.Theme == "classic" || m.Theme == "contrast" {
+			// Built-in themes require no archive file validation.
+		} else {
+			theme, err := normalizePath(m.Theme)
+			if err != nil || theme != m.Theme || !strings.HasPrefix(theme, ".themes/obsipub/") ||
+				strings.Contains(strings.TrimPrefix(theme, ".themes/obsipub/"), "/") ||
+				!strings.EqualFold(filepath.Ext(theme), ".css") {
+				return fmt.Errorf("invalid theme entry")
+			}
+			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(theme))); err != nil {
+				return fmt.Errorf("theme entry %q: %w", theme, err)
+			}
 		}
 	}
 	return nil

@@ -8,6 +8,7 @@ export interface PublicationOptions {
   fullWidth?: boolean;
   resetProtection?: boolean;
   defaultTheme?: ThemeChoice;
+  theme?: string; // design theme: "classic" | "contrast" | ".themes/<path>.css"
 }
 
 const VALID_THEMES = ["auto", "light", "dark"] as const;

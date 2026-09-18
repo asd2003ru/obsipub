@@ -447,3 +447,33 @@ func TestManifestFullWidthDefaultAndTrue(t *testing.T) {
 		t.Fatal("expected FullWidth false by default")
 	}
 }
+
+func TestThemeValidationAcceptsBuiltInsAndRejectsInvalidPaths(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "index.md"), []byte("# hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Valid built-in themes
+	for _, theme := range []string{"classic", "contrast", ""} {
+		m := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Theme: theme}
+		if err := Write(root, m); err != nil {
+			t.Fatalf("theme %q rejected unexpectedly: %v", theme, err)
+		}
+	}
+	// Invalid theme entry with path traversal
+	m := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Theme: "../secret.css"}
+	if err := Write(root, m); err == nil {
+		t.Fatal("traversal theme entry accepted")
+	}
+	// Custom theme file that exists and is contained under .themes/
+	if err := os.MkdirAll(filepath.Join(root, ".themes/obsipub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".themes/obsipub/custom.css"), []byte("body{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mCustom := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Theme: ".themes/obsipub/custom.css"}
+	if err := Write(root, mCustom); err != nil {
+		t.Fatalf("valid custom theme rejected: %v", err)
+	}
+}

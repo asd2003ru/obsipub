@@ -135,20 +135,23 @@ test("quick-auth URL includes properly URL-encoded pwd parameter and preserves r
 });
 
 test("rewriteFrontmatterWithObsipub writes Obsidian-compatible flat YAML and preserves unrelated fields", () => {
-  const input = "---\ntitle: Note\ntags:\n  - tag1\nobsipub_url: old\n---\n# Body\n";
+  const input = "---\ntitle: Note\ntags:\n  - tag1\nobsipub_url: old\nobsipub_theme: contrast\n---\n# Body\n";
   const result = rewriteFrontmatterWithObsipub(input, {
     url: "https://example.com/pub",
     prefix: "test",
     expire: null,
     showLineNumbers: true,
     showArticleLineNumbers: false,
-    protected: false
+    protected: false,
+    theme: "classic"
   });
   assert.ok(result.includes("obsipub_url: https://example.com/pub"));
   assert.ok(result.includes("obsipub_prefix: test"));
   assert.ok(result.includes("obsipub_expire: null"));
   assert.ok(result.includes("obsipub_showLineNumbers: true"));
   assert.ok(result.includes("obsipub_protected: false"));
+  assert.equal(result.match(/^obsipub_theme:/gm)?.length, 1);
+  assert.ok(result.includes("obsipub_theme: classic"));
   assert.ok(result.includes("title: Note"));
   assert.ok(result.includes("tags:\n  - tag1"));
   assert.ok(result.includes("# Body"));

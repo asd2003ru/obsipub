@@ -40,7 +40,7 @@ npm run deploy
 
 Then enable **ObsiPub Publisher** in `testvault` (or copy `manifest.json`, `main.js`, and `styles.css` to `<vault>/.obsidian/plugins/obsipub/`). Configure the server URL and API key in its settings, open a Markdown note, and run **Publish active note** or click the upload ribbon icon.
 
-The plugin collects resolved internal notes, embeds, attachments and Excalidraw files; preserves vault-relative folders; copies the active custom theme directory; writes `index.json`; then sends the ZIP to the server.
+The plugin collects resolved internal notes, embeds, attachments and Excalidraw files; preserves vault-relative folders; records the selected ObsiPub theme; writes `index.json`; then sends the ZIP to the server. Choose built-in **Classic** or **Contrast**, each with light/dark modes, or place a self-contained CSS file in `<vault>/.obsidian/obsipub/themes/` and select it in the publication dialog. Custom CSS may use `body.theme-light` and `body.theme-dark`; `url()` and `@import` are not supported. The dialog's preview is a style sample, not an exact page preview.
 
 ## Publication API
 
@@ -48,7 +48,7 @@ The plugin collects resolved internal notes, embeds, attachments and Excalidraw 
 
 - Header: `X-API-Key: <OBSIPUB_API_KEY>`
 - Content type: `application/zip`
-- ZIP root must contain an `index.json` with `{ "version": 1, "index": "...md", "theme": ".themes/.../theme.css" | "", "tree": { ... } }`.
+- ZIP root must contain an `index.json` with `{ "version": 1, "index": "...md", "theme": "classic" | "contrast" | ".themes/obsipub/<name>.css", "tree": { ... } }`.
 
 Archives are validated in a temporary directory before replacing `notes/`. Absolute paths, traversal, symlinks, duplicate paths, missing main articles and malformed manifests are rejected. The archive is bounded to 10,000 files and 512 MiB compressed/uncompressed data.
 
@@ -65,7 +65,7 @@ The server hosts independent publications under `/<prefix>`. Each publication li
 - `X-ObsiPub-Prefix`: URL-safe segment (`1–64` chars; `A–Z a–z 0–9 - _`; not `.` or `..`; must pass `ValidatePrefix`). Empty means the legacy default root. The plugin dialog makes the prefix optional — leave it blank to publish to the root URL (`/<prefix>/` defaults to `/`).
 - `X-ObsiPub-Password`: optional plaintext. Empty = public publication. Non-empty is hashed server-side (`sha256:` hex) and stored in the manifest's `passwordHash`; the server never stores plaintext.
 
-The ZIP must contain `index.json` with `{ "version": 1, "index": "...md", "theme": ".themes/.../theme.css" | "", "tree": { ... } }`. The server adds the validated prefix and server-generated password hash, then writes the resulting `index.json` into `root/<prefix>/`.
+The ZIP must contain `index.json` with `{ "version": 1, "index": "...md", "theme": "classic" | "contrast" | ".themes/obsipub/<name>.css", "tree": { ... } }`. The server adds the validated prefix and server-generated password hash, then writes the resulting `index.json` into `root/<prefix>/`.
 
 ### URL structure
 
@@ -151,7 +151,7 @@ The plugin includes a **Manage publications** command (`Manage publications` rib
 
 - The existing single-site root (`notes/` or `--root`) stays available as the default publication (empty prefix, served at `/`). Uploads without `X-ObsiPub-Prefix` continue to write to the root.
 - Migration to multisite: set a custom prefix in the plugin modal (prefilled randomly as `pub-<10 chars>`; editable) and upload with `X-ObsiPub-Prefix`. The new site appears at `/<prefix>/`; the old default remains intact until overwritten by an empty-prefix upload.
-- Custom themes must still live under `.themes/<themeName>/theme.css` inside the archive (validated as `.themes/*/theme.css`).
+- Custom publication themes live under `.themes/obsipub/<name>.css` inside the archive; Obsidian themes are not imported.
 
 ## Local test/manual workflow
 
@@ -276,7 +276,7 @@ npm run deploy
 
 - Заголовок: `X-API-Key: <OBSIPUB_API_KEY>`
 - Тип содержимого: `application/zip`
-- Корень ZIP должен содержать `index.json` с `{ "version": 1, "index": "...md", "theme": ".themes/.../theme.css" | "", "tree": { ... } }`.
+- Корень ZIP должен содержать `index.json` с `{ "version": 1, "index": "...md", "theme": "classic" | "contrast" | ".themes/obsipub/<имя>.css", "tree": { ... } }`.
 
 Архивы проверяются во временной директории перед заменой `notes/`. Абсолютные пути, обход каталогов, символические ссылки, дублирующие пути, отсутствующие основные статьи и некорректные манифесты отклоняются. Размер архива ограничен 10 000 файлов и 512 МиБ сжатых/несжатых данных.
 
@@ -293,7 +293,7 @@ npm run deploy
 - `X-ObsiPub-Prefix`: безопасный для URL сегмент (`1–64` символа; `A–Z a–z 0–9 - _`; не `.` или `..`; должен пройти `ValidatePrefix`). Пустое значение означает устаревший корень по умолчанию. Диалог плагина делает префикс опциональным — оставьте его пустым для публикации по корневому URL (`/<prefix>/` по умолчанию `/`).
 - `X-ObsiPub-Password`: опциональный текст. Пусто = публичная публикация. Не пусто — хэшируется на стороне сервера (`sha256:` hex) и сохраняется в `passwordHash` манифеста; сервер никогда не хранит текст.
 
-ZIP должен содержать `index.json` с `{ "version": 1, "index": "...md", "theme": ".themes/.../theme.css" | "", "tree": { ... } }`. Сервер добавляет проверенный префикс и сгенерированный на сервере хэш пароля, затем записывает полученный `index.json` в `root/<prefix>/`.
+ZIP должен содержать `index.json` с `{ "version": 1, "index": "...md", "theme": "classic" | "contrast" | ".themes/obsipub/<имя>.css", "tree": { ... } }`. Сервер добавляет проверенный префикс и сгенерированный на сервере хэш пароля, затем записывает полученный `index.json` в `root/<prefix>/`.
 
 ### Структура URL
 
@@ -375,7 +375,7 @@ http://localhost/zzz?pwd=password
 
 - Существующий одно-сайтовый корень (`notes/` или `--root`) остаётся доступным как публикация по умолчанию (пустой префикс, обслуживается по `/`). Загрузки без `X-ObsiPub-Prefix` продолжают записываться в корень.
 - Миграция на мультисайт: установите пользовательский префикс в модальном окне плагина (по умолчанию случайный `pub-<10 chars>`; редактируемый) и загрузите с `X-ObsiPub-Prefix`. Новый сайт появляется по адресу `/<prefix>/`; старая публикация по умолчанию остаётся нетронутой до перезаписи загрузкой с пустым префиксом.
-- Пользовательские темы должны по-прежнему находиться под `.themes/<themeName>/theme.css` внутри архива (проверяется как `.themes/*/theme.css`).
+- Пользовательские темы публикации находятся в архиве по пути `.themes/obsipub/<имя>.css`; темы Obsidian больше не импортируются.
 
 ## Локальный тестовый/ручной рабочий процесс
 

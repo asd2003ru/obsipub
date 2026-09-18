@@ -14,6 +14,7 @@ import (
 	"github.com/asd2003ru/obsipub/internal/files"
 	"github.com/asd2003ru/obsipub/internal/logger"
 	"github.com/asd2003ru/obsipub/internal/publish"
+	"github.com/asd2003ru/obsipub/internal/web/themes"
 )
 
 const baseTheme = `:root{color-scheme:light dark}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:#111827;color:#e5e7eb}.markdown-body{line-height:1.65}.markdown-body a{color:#93c5fd}.markdown-body img{max-width:100%}.callout{border-left:4px solid #8b5cf6;background:rgba(139,92,246,.12);padding:.75rem 1rem;margin:1rem 0;border-radius:.5rem}.callout-title{font-weight:700;text-transform:capitalize}`
@@ -123,10 +124,17 @@ func (p *publication) theme(c fiber.Ctx) error {
 		c.Type("text/css", "utf-8")
 		return c.SendString(baseTheme)
 	}
+	if manifest.Theme == "classic" {
+		c.Type("text/css", "utf-8")
+		return c.Send(themes.ClassicCSS)
+	}
+	if manifest.Theme == "contrast" {
+		c.Type("text/css", "utf-8")
+		return c.Send(themes.ContrastCSS)
+	}
 	full, err := p.store.RawPath(manifest.Theme)
 	if err != nil {
-		c.Type("text/css", "utf-8")
-		return c.SendString(baseTheme)
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "theme file not found"})
 	}
 	return c.SendFile(full)
 }

@@ -15,7 +15,7 @@ export function rewriteFrontmatterWithObsipub(text: string, obsipubValue: Record
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (/^(obsipub_url|obsipub_prefix|obsipub_expire|obsipub_showLineNumbers|obsipub_showArticleLineNumbers|obsipub_fullWidth|obsipub_protected):/.test(trimmed)) {
+    if (/^(obsipub_url|obsipub_prefix|obsipub_expire|obsipub_showLineNumbers|obsipub_showArticleLineNumbers|obsipub_fullWidth|obsipub_protected|obsipub_theme):/.test(trimmed)) {
       i += 1;
       continue;
     }

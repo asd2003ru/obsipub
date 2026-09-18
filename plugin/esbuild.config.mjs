@@ -13,6 +13,7 @@ await esbuild.build({
   format: "cjs",
   platform: "browser",
   target: "es2020",
+  loader: { ".css": "text" },
   external: ["obsidian"],
   sourcemap: "inline",
   logLevel: "info"

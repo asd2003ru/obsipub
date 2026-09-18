@@ -303,6 +303,39 @@ func TestPublicPublicationAccessWithoutCookie(t *testing.T) {
 	}
 }
 
+func TestBuiltInPublicationThemes(t *testing.T) {
+	for _, theme := range []string{"classic", "contrast"} {
+		t.Run(theme, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.WriteFile(filepath.Join(root, "index.md"), []byte("# note"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := publish.Write(root, publish.Manifest{
+				Version: 1, Index: "index.md", Theme: theme,
+				Tree: publish.Node{Path: "index.md", Name: "index"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			app, err := New(config.Config{Root: root})
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/theme", nil))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != http.StatusOK || !bytes.Contains(body, []byte("body.theme-dark")) {
+				t.Fatalf("theme %s: status=%d, body=%q", theme, resp.StatusCode, body)
+			}
+		})
+	}
+}
+
 func TestProtectedPublicationAuthStatusAndLogin(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "notes")
 	deployProtectedServerSite(t, root, "secure", "# secure", "correct horse")

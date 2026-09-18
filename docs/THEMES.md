@@ -38,13 +38,15 @@ Arbitrary selector/layout/asset conversion is not supported.
 
 ### Quick color conversion
 
-Run from the repository root:
+In the ObsiPub plugin settings, choose a CSS file from `.obsidian/themes` in **Convert Obsidian theme**, then click **Convert to ObsiPub theme**. The converted file is written to `.obsidian/obsipub/themes/` and an existing file with the same name is overwritten.
+
+For batch or command-line use, run from the repository root:
 
 ```bash
 node tools/convert-obsidian-theme.mjs /path/to/obsidian/theme.css /path/to/vault/.obsidian/obsipub/themes/my.css
 ```
 
-Only literal color tokens are mapped; review both modes and visual contrast manually. The output file is never overwritten. Variables `var(...)`, arbitrary selectors, layout and fonts require manual refinement. Conversion is rejected if `url()` or `@import` is present; the existing output file is not overwritten. If colors for one mode are missing in the source, add them manually. After conversion, check contrast and preview.
+Only literal color tokens are mapped; review both modes and visual contrast manually. Variables `var(...)`, arbitrary selectors, layout and fonts require manual refinement. Conversion is rejected if `url()` or `@import` is present. The plugin overwrites the same-name output; the command-line tool refuses to overwrite an existing output. If colors for one mode are missing in the source, add them manually. After conversion, check contrast and preview.
 
 ### Preview and publish
 
@@ -133,13 +135,15 @@ body.theme-dark  { --accent: #6b8cce; }
 
 ### Быстрый перенос цветов из темы Obsidian
 
-Из корня репозитория запустите:
+В настройках плагина ObsiPub выберите CSS-файл из `.obsidian/themes` в поле **Конвертировать тему Obsidian**, затем нажмите **Конвертировать в тему ObsiPub**. Результат записывается в `.obsidian/obsipub/themes/`; одноимённый файл перезаписывается.
+
+Для пакетной или командной конвертации из корня репозитория запустите:
 
 ```bash
 node tools/convert-obsidian-theme.mjs /path/to/obsidian/theme.css /path/to/vault/.obsidian/obsipub/themes/my.css
 ```
 
-Конвертер переносит **только буквальные цвета** из `body.theme-light` / `body.theme-dark` (также `.theme-light` / `.theme-dark`) для базовых переменных Obsidian: фон, текст, границы, акцент, ошибка и код. Переменные `var(...)`, произвольные селекторы, раскладка и шрифты требуют ручной доработки. При `url()` или `@import` конвертация отклоняется; существующий выходной файл не перезаписывается. Если в исходнике нет цветов одного из режимов, дополните его вручную. После конвертации проверьте контраст и предпросмотр.
+Конвертер переносит **только буквальные цвета** из `body.theme-light` / `body.theme-dark` (также `.theme-light` / `.theme-dark`) для базовых переменных Obsidian: фон, текст, границы, акцент, ошибка и код. Переменные `var(...)`, произвольные селекторы, раскладка и шрифты требуют ручной доработки. При `url()` или `@import` конвертация отклоняется. Конвертер в плагине перезаписывает одноимённый файл; командный инструмент не перезаписывает существующий выходной файл. Если в исходнике нет цветов одного из режимов, дополните его вручную. После конвертации проверьте контраст и предпросмотр.
 
 ### Предпросмотр и публикация
 

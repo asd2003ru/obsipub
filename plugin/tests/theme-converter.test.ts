@@ -1,0 +1,76 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { convert, isSimpleColor, safeBasename } from "../src/theme-converter";
+
+test("maps literal color variables from body.theme-light/theme-dark", () => {
+  const css = `body.theme-light {
+    --background-primary: #f5f7fa;
+    --text-normal: #1a2332;
+  }
+  body.theme-dark {
+    --background-primary: #0f1322;
+    --text-normal: #e6eaf0;
+  }`;
+  const result = convert(css);
+  assert.ok(result.css.includes("body.theme-light {"));
+  assert.ok(result.css.includes("--bg: #f5f7fa;"));
+  assert.ok(result.css.includes("--obs-canvas: #f5f7fa;"));
+  assert.ok(result.css.includes("--text: #1a2332;"));
+  assert.ok(result.css.includes("--obs-text: #e6eaf0;"));
+  assert.equal(result.warnings.length, 0);
+});
+
+test("handles .theme-light and .theme-dark selectors", () => {
+  const css = `.theme-light { --interactive-accent: #2a5ca8; }
+.theme-dark { --interactive-accent: #6b8cce; }`;
+  const result = convert(css);
+  assert.ok(result.css.includes("--accent: #2a5ca8;"));
+  assert.ok(result.css.includes("--accent: #6b8cce;"));
+});
+
+test("rejects @import and url()", () => {
+  assert.throws(() => convert("@import 'other.css'; body.theme-light {}"), /self-contained/);
+  assert.throws(() => convert("body { background: url(image.png); }"), /self-contained/);
+});
+
+test("ignores var() and arbitrary selectors with warnings", () => {
+  const css = `body.theme-light { --background-primary: var(--x); }
+body.theme-dark { --text-normal: #000; }
+.something { --interactive-accent: #fff; }`;
+  const result = convert(css);
+  assert.ok(result.warnings.some((w) => w.includes("Skipped non-literal color")));
+  assert.ok(result.warnings.some((w) => w.includes("Skipped selector")));
+  assert.ok(result.css.includes("--text: #000;"));
+});
+
+test("handles missing mode with warning", () => {
+  const css = `body.theme-light { --background-primary: #fff; }`;
+  const result = convert(css);
+  assert.ok(result.warnings.some((w) => w.includes("No supported literal colors found for dark mode")));
+  assert.ok(result.css.includes("body.theme-light {"));
+});
+
+test("throws when no colors found in either mode", () => {
+  assert.throws(() => convert("body.theme-light {}"), /No supported theme colors found/);
+});
+
+test("safeBasename strips unsafe chars and prevents traversal", () => {
+  assert.equal(safeBasename("my-theme.css"), "my-theme.css");
+  assert.equal(safeBasename("../escape.css"), "escape.css");
+  assert.equal(safeBasename("folder/theme.css"), "theme.css");
+  assert.equal(safeBasename("bad\nname.css"), "bad-name.css");
+  assert.equal(safeBasename(""), "theme.css");
+  assert.equal(safeBasename(".hidden.css"), ".hidden.css");
+});
+
+test("isSimpleColor recognizes literal colors", () => {
+  assert.ok(isSimpleColor("#fff"));
+  assert.ok(isSimpleColor("#ffffff"));
+  assert.ok(isSimpleColor("rgb(0,0,0)"));
+  assert.ok(isSimpleColor("rgba(0,0,0,0.5)"));
+  assert.ok(isSimpleColor("hsl(0,0%,0%)"));
+  assert.ok(isSimpleColor("transparent"));
+  assert.ok(isSimpleColor("black"));
+  assert.equal(isSimpleColor("red"), false);
+  assert.equal(isSimpleColor("var(--x)"), false);
+});

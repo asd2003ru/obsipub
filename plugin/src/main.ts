@@ -14,6 +14,7 @@ import {
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
 import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice, randomPublicationPrefix } from "./publish-options";
 import { hasExternalThemeResources, isCustomThemeFileName } from "./theme-utils";
+import { convert, safeBasename } from "./theme-converter";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -122,6 +123,12 @@ function t(key: string): string {
     "themePreview": "Предпросмотр темы",
     "themePreviewSample": "Пример оформления (не точный предпросмотр публикации)",
     "themeUnavailable": "Выбранная тема недоступна.",
+    "themeConverterName": "Конвертировать тему Obsidian",
+    "themeConverterDesc": "Выберите CSS-файл из .obsidian/themes. Переносит цвета в тему ObsiPub и перезаписывает одноимённый файл.",
+    "themeConverterBtn": "Конвертировать в тему ObsiPub",
+    "themeConverterSuccess": "Тема конвертирована в {file}",
+    "themeConverterFailed": "Ошибка конвертации темы",
+    "themeConverterNoThemes": "Темы в .obsidian/themes не найдены.",
   };
   const en: Record<string, string> = {
     "managePublicationsTitle": "Manage publications",
@@ -216,6 +223,12 @@ function t(key: string): string {
     "themePreview": "Preview theme",
     "themePreviewSample": "Style sample (not an exact publication preview)",
     "themeUnavailable": "Selected theme is unavailable.",
+    "themeConverterName": "Convert Obsidian theme",
+    "themeConverterDesc": "Select a CSS file from .obsidian/themes. Converts its colors to an ObsiPub theme and overwrites a file with the same name.",
+    "themeConverterBtn": "Convert to ObsiPub theme",
+    "themeConverterSuccess": "Theme converted to {file}",
+    "themeConverterFailed": "Theme conversion failed",
+    "themeConverterNoThemes": "No themes found in .obsidian/themes.",
   };
   return isRussian() ? (ru[key] ?? en[key] ?? key) : (en[key] ?? key);
 }
@@ -490,6 +503,23 @@ export default class ObsipubPlugin extends Plugin {
         .filter((path) => path.toLowerCase().endsWith(".css"))
         .map((path) => path.slice(themesDir.length + 1))
         .filter(isCustomThemeFileName)
+        .sort();
+    } catch {
+      return [];
+    }
+  }
+
+  /** Discover Obsidian theme CSS files in the vault's .obsidian/themes folder. */
+  async discoverObsidianThemes(): Promise<string[]> {
+    const adapter = this.app.vault.adapter;
+    const themesDir = normalizePath(".obsidian/themes");
+    if (!(await adapter.exists(themesDir))) return [];
+    try {
+      const listing = await adapter.list(themesDir) as AdapterListing;
+      return listing.files
+        .filter((path) => path.toLowerCase().endsWith(".css"))
+        .map((path) => path.slice(themesDir.length + 1))
+        .filter((name) => /^[^/\\\x00-\x1f]+\.css$/i.test(name))
         .sort();
     } catch {
       return [];
@@ -1150,6 +1180,63 @@ class ObsipubSettingTab extends PluginSettingTab {
         .onClick(async () => {
           await this.plugin.cleanFrontmatter();
         }));
+    const themeConverterRow = new Setting(containerEl)
+      .setName(t("themeConverterName"))
+      .setDesc(t("themeConverterDesc"));
+    let themeDropdown: HTMLSelectElement | null = null;
+    const dropdownComponent = themeConverterRow.addDropdown((dropdown) => {
+      dropdown.addOption("", t("themeConverterNoThemes"));
+      themeDropdown = dropdown.selectEl;
+      return dropdown.setValue("");
+    });
+    themeConverterRow.addButton((btn) => btn
+      .setButtonText(t("themeConverterBtn"))
+      .onClick(async () => {
+        if (!themeDropdown || !themeDropdown.value) {
+          new Notice(t("themeConverterNoThemes"));
+          return;
+        }
+        const selected = themeDropdown.value;
+        const adapter = this.plugin.app.vault.adapter;
+        const sourceDir = normalizePath(".obsidian/themes");
+        const sourcePath = normalizePath(`${sourceDir}/${selected}`);
+        try {
+          const cssContent = await adapter.read(sourcePath);
+          const result = convert(cssContent);
+          for (const warning of result.warnings) {
+            console.warn("Theme converter:", warning);
+          }
+          const basename = safeBasename(selected);
+          const destDir = normalizePath(".obsidian/obsipub/themes");
+          if (!(await adapter.exists(destDir))) {
+            await adapter.mkdir(destDir);
+          }
+          const destPath = normalizePath(`${destDir}/${basename}`);
+          await adapter.write(destPath, result.css);
+          new Notice(t("themeConverterSuccess").replace("{file}", basename));
+        } catch (e) {
+          console.error(t("themeConverterFailed"), e);
+          new Notice(`${t("themeConverterFailed")} — ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }));
+    // Populate dropdown with sorted theme file names asynchronously
+    void (async () => {
+      try {
+        const themes = await this.plugin.discoverObsidianThemes();
+        const dropdownEl = themeDropdown;
+        if (!dropdownEl) return;
+        dropdownEl.empty();
+        if (themes.length === 0) {
+          dropdownEl.createEl("option", { value: "", text: t("themeConverterNoThemes") });
+        } else {
+          for (const name of themes) {
+            dropdownEl.createEl("option", { value: name, text: name });
+          }
+        }
+      } catch {
+        // Ignore population errors
+      }
+    })();
   }
 }
 

@@ -24,12 +24,21 @@ const tokens: Record<string, string[]> = {
   "--text-error": ["--danger"],
   "--code-background": ["--obs-code-bg", "--code-bg"],
   "--background-modifier-hover": ["--accent-soft"],
+  "--background-primary-hsl": ["--obs-canvas", "--bg"],
+  "--background-primary-alt-hsl": ["--obs-sidebar", "--panel"],
+  "--background-secondary-hsl": ["--obs-sidebar", "--panel"],
+  "--background-secondary-alt-hsl": ["--obs-topbar"],
+  "--text-normal-hsl": ["--obs-text", "--text"],
+  "--text-muted-hsl": ["--obs-muted", "--muted"],
+  "--interactive-accent-base-hsl": ["--accent", "--link-color"],
+  "--interactive-accent-tint-hsl": ["--accent", "--link-color"],
 };
 
 export function isSimpleColor(value: string): boolean {
   return (
     /^#[0-9a-f]{3,8}$/i.test(value) ||
     /^(?:rgb|rgba|hsl|hsla)\([\d\s.,%+-]+\)$/i.test(value) ||
+    /^[\d.]+\s*,\s*[\d.]+%\s*,\s*[\d.]+%$/.test(value) ||
     /^(?:transparent|black|white)$/i.test(value)
   );
 }
@@ -128,10 +137,10 @@ export async function inlineCssUrls(
 export function convert(css: string): ConvertResult {
   const warnings: string[] = [];
   css = css.replace(/@import[^;]*;/gi, "");
-  if (/url\s*\(\s*(?!(?:["']?data:))/i.test(css)) {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  if (/url\s*\(\s*(?!(?:["']?data:))/i.test(clean)) {
     throw new Error("Theme contains url(); ObsiPub themes must be self-contained");
   }
-  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const modes: Record<string, Map<string, string>> = {
     light: new Map(),
     dark: new Map(),
@@ -141,8 +150,9 @@ export function convert(css: string): ConvertResult {
   let match: RegExpExecArray | null;
   while ((match = blockRegex.exec(clean)) !== null) {
     const selector = match[1].trim();
-    const modeMatch = /^(?:body)?\.theme-(light|dark)$/.exec(selector);
-    const mode = modeMatch ? modeMatch[1] : null;
+    const hasLight = /(?:^|[.,\s])(?:body)?\.theme-light(?:[.,\s]|$)/.test(selector);
+    const hasDark = /(?:^|[.,\s])(?:body)?\.theme-dark(?:[.,\s]|$)/.test(selector);
+    const mode = hasLight !== hasDark ? (hasLight ? "light" : "dark") : null;
     const isBase = selector === "body" || selector === ":root";
     if (!mode && !isBase) {
       warnings.push(`Skipped selector: ${selector}`);
@@ -158,9 +168,10 @@ export function convert(css: string): ConvertResult {
         warnings.push(`Skipped non-literal color ${name} in ${mode} mode`);
         continue;
       }
+      const normalizedValue = /%\s*$/.test(value) && value.includes(",") ? `hsl(${value})` : value;
       for (const output of tokens[name]) {
-        if (mode) modes[mode].set(output, value);
-        else base.set(output, value);
+        if (mode) modes[mode].set(output, normalizedValue);
+        else base.set(output, normalizedValue);
       }
     }
   }

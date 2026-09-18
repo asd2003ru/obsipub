@@ -35,6 +35,17 @@ test("uses generic body variables for both modes", () => {
   assert.equal(result.warnings.length, 0);
 });
 
+test("handles comma selectors and Obsidian HSL tokens", () => {
+  const result = convert(`.theme-light, .theme-light:not(.css-settings-manager) {
+    --background-primary-hsl: 0, 0%, 100%;
+  }
+  .theme-dark, .theme-dark:not(.css-settings-manager) {
+    --background-primary-hsl: 225, 50%, 20%;
+  }`);
+  assert.ok(result.css.includes("--bg: hsl(0, 0%, 100%);"));
+  assert.ok(result.css.includes("--bg: hsl(225, 50%, 20%);"));
+});
+
 test("allows resolved imports and rejects remaining url() assets", async () => {
   const imported = await inlineLocalImports(
     "@import 'colors.css'; body.theme-light { --background-primary: #fff; }",

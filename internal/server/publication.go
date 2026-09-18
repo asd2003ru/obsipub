@@ -121,16 +121,16 @@ func (p *publication) raw(c fiber.Ctx) error {
 func (p *publication) theme(c fiber.Ctx) error {
 	manifest, ready := p.state()
 	if !ready || manifest.Theme == "" {
-		c.Type("text/css", "utf-8")
+		c.Type("css", "utf-8")
 		return c.SendString(baseTheme)
 	}
 	if manifest.Theme == "classic" {
-		c.Type("text/css", "utf-8")
-		return c.Send(themes.ClassicCSS)
+		c.Type("css", "utf-8")
+		return c.SendString(string(themes.ClassicCSS))
 	}
 	if manifest.Theme == "contrast" {
-		c.Type("text/css", "utf-8")
-		return c.Send(themes.ContrastCSS)
+		c.Type("css", "utf-8")
+		return c.SendString(string(themes.ContrastCSS))
 	}
 	full, err := p.store.RawPath(manifest.Theme)
 	if err != nil {

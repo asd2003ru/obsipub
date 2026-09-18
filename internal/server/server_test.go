@@ -332,6 +332,10 @@ func TestBuiltInPublicationThemes(t *testing.T) {
 			if resp.StatusCode != http.StatusOK || !bytes.Contains(body, []byte("body.theme-dark")) {
 				t.Fatalf("theme %s: status=%d, body=%q", theme, resp.StatusCode, body)
 			}
+			ct := resp.Header.Get("Content-Type")
+			if !strings.Contains(ct, "text/css") {
+				t.Fatalf("theme %s: Content-Type %q does not include text/css", theme, ct)
+			}
 		})
 	}
 }

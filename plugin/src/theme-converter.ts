@@ -8,6 +8,11 @@ export interface ThemeImportResult {
   warnings: string[];
 }
 
+export interface ThemeResourceResult {
+  css: string;
+  warnings: string[];
+}
+
 const tokens: Record<string, string[]> = {
   "--background-primary": ["--obs-canvas", "--bg"],
   "--background-secondary": ["--obs-sidebar", "--panel"],
@@ -91,10 +96,39 @@ export async function inlineLocalImports(
   return { css: output, warnings };
 }
 
+/** Replace local/remote CSS url() resources with data URLs. */
+export async function inlineCssUrls(
+  css: string,
+  loadResource: (url: string) => Promise<string>
+): Promise<ThemeResourceResult> {
+  const warnings: string[] = [];
+  const pattern = /url\(\s*(["']?)([^"')]+)\1\s*\)/gi;
+  let output = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(css)) !== null) {
+    output += css.slice(lastIndex, match.index);
+    lastIndex = pattern.lastIndex;
+    const resource = match[2].trim();
+    if (/^data:/i.test(resource)) {
+      output += match[0];
+      continue;
+    }
+    try {
+      output += `url(${await loadResource(resource)})`;
+    } catch {
+      warnings.push(`Skipped unreadable resource: ${resource}`);
+      output += "none";
+    }
+  }
+  output += css.slice(lastIndex);
+  return { css: output, warnings };
+}
+
 export function convert(css: string): ConvertResult {
   const warnings: string[] = [];
   css = css.replace(/@import[^;]*;/gi, "");
-  if (/url\s*\(/i.test(css)) {
+  if (/url\s*\(\s*["']?(?!data:)/i.test(css)) {
     throw new Error("Theme contains url(); ObsiPub themes must be self-contained");
   }
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");

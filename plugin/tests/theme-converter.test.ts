@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { convert, inlineLocalImports, isSimpleColor, safeBasename } from "../src/theme-converter";
+import { convert, inlineCssUrls, inlineLocalImports, isSimpleColor, safeBasename } from "../src/theme-converter";
 
 test("maps literal color variables from body.theme-light/theme-dark", () => {
   const css = `body.theme-light {
@@ -37,6 +37,15 @@ test("allows resolved imports and rejects remaining url() assets", async () => {
   const result = convert(imported.css);
   assert.ok(result.css.includes("--text: #000;"));
   assert.throws(() => convert("body { background: url(image.png); }"), /self-contained/);
+});
+
+test("inlines CSS resources as data URLs", async () => {
+  const result = await inlineCssUrls("body { background: url('icon.svg'); mask: url(data:image/svg+xml;base64,abc); }", async (url) => {
+    assert.equal(url, "icon.svg");
+    return "data:image/svg+xml;base64,xyz";
+  });
+  assert.match(result.css, /url\(data:image\/svg\+xml;base64,xyz\)/);
+  assert.match(result.css, /url\(data:image\/svg\+xml;base64,abc\)/);
 });
 
 test("ignores var() and arbitrary selectors with warnings", () => {

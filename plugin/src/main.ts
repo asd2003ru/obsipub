@@ -9,12 +9,13 @@ import {
   PluginSettingTab,
   Setting,
   TFile,
-  normalizePath
+  normalizePath,
+  requestUrl
 } from "obsidian";
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
 import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice, randomPublicationPrefix } from "./publish-options";
 import { hasExternalThemeResources, isCustomThemeFileName } from "./theme-utils";
-import { convert, inlineLocalImports, safeBasename } from "./theme-converter";
+import { convert, inlineCssUrls, inlineLocalImports, safeBasename } from "./theme-converter";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -246,6 +247,20 @@ interface AdapterListing {
 interface ObsidianThemeChoice {
   name: string;
   path: string;
+}
+
+function resourceMimeType(path: string): string {
+  const ext = path.split(/[?#]/)[0].split(".").pop()?.toLowerCase();
+  return ({ svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf", otf: "font/otf" } as Record<string, string>)[ext || ""] || "application/octet-stream";
+}
+
+function dataUrlFromBytes(bytes: ArrayBuffer, mime: string): string {
+  const values = new Uint8Array(bytes);
+  let binary = "";
+  for (let i = 0; i < values.length; i += 0x8000) {
+    binary += String.fromCharCode(...values.subarray(i, i + 0x8000));
+  }
+  return `data:${mime};base64,${window.btoa(binary)}`;
 }
 
 export default class ObsipubPlugin extends Plugin {
@@ -1228,7 +1243,27 @@ class ObsipubSettingTab extends PluginSettingTab {
         try {
           const cssContent = await adapter.read(sourcePath);
           const imported = await inlineLocalImports(cssContent, selected, (relativePath) => adapter.read(normalizePath(`${sourceDir}/${relativePath}`)));
-          const result = convert(imported.css);
+          const resources = await inlineCssUrls(imported.css, async (resource) => {
+            if (/^https?:\/\//i.test(resource)) {
+              const response = await requestUrl({ url: resource });
+              const contentType = (response.headers["content-type"] || response.headers["Content-Type"])?.split(";", 1)[0] || resourceMimeType(resource);
+              return dataUrlFromBytes(response.arrayBuffer, contentType);
+            }
+            const relativeResource = resource.replace(/^\.\//, "");
+            const baseParts = selected.split("/");
+            baseParts.pop();
+            const parts = [...baseParts, ...relativeResource.split("/")];
+            const resolved: string[] = [];
+            for (const part of parts) {
+              if (!part || part === ".") continue;
+              if (part === "..") { resolved.pop(); continue; }
+              resolved.push(part);
+            }
+            const resourcePath = normalizePath(`${sourceDir}/${resolved.join("/")}`);
+            return dataUrlFromBytes(await adapter.readBinary(resourcePath), resourceMimeType(resourcePath));
+          });
+          const result = convert(resources.css);
+          result.warnings.unshift(...resources.warnings);
           result.warnings.unshift(...imported.warnings);
           for (const warning of result.warnings) {
             console.warn("Theme converter:", warning);

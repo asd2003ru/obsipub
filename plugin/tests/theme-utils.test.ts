@@ -14,4 +14,5 @@ test("custom theme CSS is self-contained", () => {
   assert.equal(hasExternalThemeResources("body { color: red }"), false);
   assert.equal(hasExternalThemeResources("@import 'other.css';"), true);
   assert.equal(hasExternalThemeResources("body { background: url(image.png) }"), true);
+  assert.equal(hasExternalThemeResources("body { src: url(data:font/woff;base64,abc) }"), false);
 });

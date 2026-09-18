@@ -3,5 +3,5 @@ export function isCustomThemeFileName(value: string): boolean {
 }
 
 export function hasExternalThemeResources(css: string): boolean {
-  return /url\s*\(|@import\b/i.test(css);
+  return /@import\b|url\s*\(\s*["']?(?!data:)/i.test(css);
 }

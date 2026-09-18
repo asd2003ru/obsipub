@@ -32,7 +32,7 @@ body.theme-dark  { --accent: #6b8cce; }
 
 ### Restrictions
 
-Published theme CSS must be self-contained: do not use `url()` or `@import` in a hand-written output theme. The plugin converter can inline local CSS imports from the selected Obsidian theme; external imports are skipped.
+Published theme CSS must be self-contained. The plugin converter inlines local CSS imports and loads local or HTTP(S) `url()` resources into data URLs; inaccessible external resources are skipped.
 
 Arbitrary selector/layout/asset conversion is not supported.
 
@@ -46,7 +46,7 @@ For batch or command-line use, run from the repository root:
 node tools/convert-obsidian-theme.mjs /path/to/obsidian/theme.css /path/to/vault/.obsidian/obsipub/themes/my.css
 ```
 
-Only literal color tokens are mapped; review both modes and visual contrast manually. Local CSS imports from the selected theme are inlined; external imports are skipped. Variables `var(...)`, arbitrary selectors, layout and fonts require manual refinement. Remaining `url()` assets are unsupported. The plugin overwrites the same-name output; the command-line tool refuses to overwrite an existing output. If colors for one mode are missing in the source, add them manually. After conversion, check contrast and preview.
+Only literal color tokens are mapped; review both modes and visual contrast manually. Local CSS imports and local/HTTP(S) `url()` resources are inlined as data URLs; inaccessible resources are skipped. Variables `var(...)`, arbitrary selectors, layout and fonts require manual refinement. The plugin overwrites the same-name output; the command-line tool refuses to overwrite an existing output. If colors for one mode are missing in the source, add them manually. After conversion, check contrast and preview.
 
 ### Preview and publish
 
@@ -129,7 +129,7 @@ body.theme-dark  { --accent: #6b8cce; }
 
 ### Ограничения
 
-Не используйте `url()` и `@import`. Тема должна быть самодостаточной.
+Тема должна быть самодостаточной. Конвертер плагина встраивает локальные CSS-импорты и загружает локальные или HTTP(S) ресурсы из `url()` в data URL; недоступные ресурсы пропускаются.
 
 Произвольная конвертация селекторов, макетов или ассетов не поддерживается.
 
@@ -143,7 +143,7 @@ body.theme-dark  { --accent: #6b8cce; }
 node tools/convert-obsidian-theme.mjs /path/to/obsidian/theme.css /path/to/vault/.obsidian/obsipub/themes/my.css
 ```
 
-Конвертер переносит **только буквальные цвета** из `body.theme-light` / `body.theme-dark` (также `.theme-light` / `.theme-dark`) для базовых переменных Obsidian: фон, текст, границы, акцент, ошибка и код. Локальные CSS-импорты из выбранной темы встраиваются, внешние импорты пропускаются. Переменные `var(...)`, произвольные селекторы, раскладка и шрифты требуют ручной доработки. Оставшиеся `url()` не поддерживаются. Конвертер в плагине перезаписывает одноимённый файл; командный инструмент не перезаписывает существующий выходной файл. Если в исходнике нет цветов одного из режимов, дополните его вручную. После конвертации проверьте контраст и предпросмотр.
+Конвертер переносит **только буквальные цвета** из `body.theme-light` / `body.theme-dark` (также `.theme-light` / `.theme-dark`) для базовых переменных Obsidian: фон, текст, границы, акцент, ошибка и код. Локальные CSS-импорты и локальные/HTTP(S) ресурсы из `url()` встраиваются как data URL; недоступные ресурсы пропускаются. Переменные `var(...)`, произвольные селекторы, раскладка и шрифты требуют ручной доработки. Конвертер в плагине перезаписывает одноимённый файл; командный инструмент не перезаписывает существующий выходной файл. Если в исходнике нет цветов одного из режимов, дополните его вручную. После конвертации проверьте контраст и предпросмотр.
 
 ### Предпросмотр и публикация
 

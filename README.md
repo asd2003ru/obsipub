@@ -26,10 +26,10 @@ The frontend is served from `web/dist` (built with `npm run build` in the `web/`
 
 ## Obsidian plugin
 
-Install from this repo checkout into any vault with a single command:
+Install the latest plugin release into an open vault with a single command (run it from the vault directory):
 
 ```bash
-VAULT="/path/to/vault" && npm ci --prefix plugin && npm run build --prefix plugin && mkdir -p "$VAULT/.obsidian/plugins/obsipub" && cp "plugin/dist/main.js" "plugin/dist/manifest.json" "plugin/dist/styles.css" "$VAULT/.obsidian/plugins/obsipub/"
+curl -fsSL https://raw.githubusercontent.com/asd2003ru/obsipub/main/install_plugin.sh | sh
 ```
 
 Then enable the Community Plugin **ObsiPub Publisher** and configure the server URL and API key. Open a Markdown note and run **Publish active note**.
@@ -143,10 +143,10 @@ go run ./cmd/obsipub --api-key 'replace-with-a-secret'
 
 ## Плагин Obsidian
 
-Установка из этого репозитория в выбранный vault одной командой:
+Установите последнюю версию плагина в открытый vault одной командой (запускайте из каталога vault):
 
 ```bash
-VAULT="/path/to/vault" && npm ci --prefix plugin && npm run build --prefix plugin && mkdir -p "$VAULT/.obsidian/plugins/obsipub" && cp "plugin/dist/main.js" "plugin/dist/manifest.json" "plugin/dist/styles.css" "$VAULT/.obsidian/plugins/obsipub/"
+curl -fsSL https://raw.githubusercontent.com/asd2003ru/obsipub/main/install_plugin.sh | sh
 ```
 
 Затем включите плагин сообщества **ObsiPub Publisher** и настройте URL сервера и API-ключ. Откройте заметку Markdown и запустите **Publish active note**.

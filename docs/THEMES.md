@@ -38,7 +38,7 @@ Arbitrary selector/layout/asset conversion is not supported.
 
 ### Quick color conversion
 
-In the ObsiPub plugin settings, choose a CSS file from `.obsidian/themes` in **Convert Obsidian theme**, then click **Convert to ObsiPub theme**. The converted file is written to `.obsidian/obsipub/themes/` and an existing file with the same name is overwritten.
+In the ObsiPub plugin settings, choose a theme from `.obsidian/themes` in **Convert Obsidian theme**, then click **Convert to ObsiPub theme**. Community themes in nested folders are shown by the name from their `manifest.json`. The converted file is written to `.obsidian/obsipub/themes/` and an existing file with the same name is overwritten.
 
 For batch or command-line use, run from the repository root:
 
@@ -135,7 +135,7 @@ body.theme-dark  { --accent: #6b8cce; }
 
 ### Быстрый перенос цветов из темы Obsidian
 
-В настройках плагина ObsiPub выберите CSS-файл из `.obsidian/themes` в поле **Конвертировать тему Obsidian**, затем нажмите **Конвертировать в тему ObsiPub**. Результат записывается в `.obsidian/obsipub/themes/`; одноимённый файл перезаписывается.
+В настройках плагина ObsiPub выберите тему из `.obsidian/themes` в поле **Конвертировать тему Obsidian**, затем нажмите **Конвертировать в тему ObsiPub**. Темы во вложенных каталогах отображаются по имени из их `manifest.json`. Результат записывается в `.obsidian/obsipub/themes/`; одноимённый файл перезаписывается.
 
 Для пакетной или командной конвертации из корня репозитория запустите:
 

@@ -243,6 +243,11 @@ interface AdapterListing {
   folders: string[];
 }
 
+interface ObsidianThemeChoice {
+  name: string;
+  path: string;
+}
+
 export default class ObsipubPlugin extends Plugin {
   settings: ObsipubSettings = DEFAULT_SETTINGS;
 
@@ -510,17 +515,37 @@ export default class ObsipubPlugin extends Plugin {
   }
 
   /** Discover Obsidian theme CSS files in the vault's .obsidian/themes folder. */
-  async discoverObsidianThemes(): Promise<string[]> {
+  async discoverObsidianThemes(): Promise<ObsidianThemeChoice[]> {
     const adapter = this.app.vault.adapter;
     const themesDir = normalizePath(".obsidian/themes");
     if (!(await adapter.exists(themesDir))) return [];
+    const choices: ObsidianThemeChoice[] = [];
+    const visit = async (directory: string, relativePrefix: string): Promise<void> => {
+      const listing = await adapter.list(directory) as AdapterListing;
+      for (const filePath of listing.files) {
+        if (!filePath.toLowerCase().endsWith(".css")) continue;
+        const relativePath = relativePrefix ? `${relativePrefix}/${filePath.slice(directory.length + 1)}` : filePath.slice(directory.length + 1);
+        if (!/^[^/\\\x00-\x1f]+(?:\/[^/\\\x00-\x1f]+)*\.css$/i.test(relativePath)) continue;
+        const folder = relativePath.includes("/") ? relativePath.slice(0, relativePath.lastIndexOf("/")) : "";
+        let name = relativePath.slice(relativePath.lastIndexOf("/") + 1, -4);
+        if (folder) {
+          try {
+            const manifestPath = normalizePath(`${themesDir}/${folder}/manifest.json`);
+            const manifest = JSON.parse(await adapter.read(manifestPath)) as { name?: unknown };
+            if (typeof manifest.name === "string" && manifest.name.trim()) name = manifest.name.trim();
+          } catch { /* fall back to the CSS filename */ }
+        }
+        choices.push({ name, path: relativePath });
+      }
+      for (const folderPath of listing.folders) {
+        const folderName = folderPath.slice(directory.length + 1);
+        if (!/^[^/\\\x00-\x1f]+$/.test(folderName)) continue;
+        await visit(folderPath, relativePrefix ? `${relativePrefix}/${folderName}` : folderName);
+      }
+    };
     try {
-      const listing = await adapter.list(themesDir) as AdapterListing;
-      return listing.files
-        .filter((path) => path.toLowerCase().endsWith(".css"))
-        .map((path) => path.slice(themesDir.length + 1))
-        .filter((name) => /^[^/\\\x00-\x1f]+\.css$/i.test(name))
-        .sort();
+      await visit(themesDir, "");
+      return choices.sort((a, b) => a.name.localeCompare(b.name));
     } catch {
       return [];
     }
@@ -1206,7 +1231,8 @@ class ObsipubSettingTab extends PluginSettingTab {
           for (const warning of result.warnings) {
             console.warn("Theme converter:", warning);
           }
-          const basename = safeBasename(selected);
+          const selectedTheme = (await this.plugin.discoverObsidianThemes()).find((theme) => theme.path === selected);
+          const basename = safeBasename(`${selectedTheme?.name || selected}.css`);
           const destDir = normalizePath(".obsidian/obsipub/themes");
           if (!(await adapter.exists(destDir))) {
             await adapter.mkdir(destDir);
@@ -1229,8 +1255,8 @@ class ObsipubSettingTab extends PluginSettingTab {
         if (themes.length === 0) {
           dropdownEl.createEl("option", { value: "", text: t("themeConverterNoThemes") });
         } else {
-          for (const name of themes) {
-            dropdownEl.createEl("option", { value: name, text: name });
+          for (const theme of themes) {
+            dropdownEl.createEl("option", { value: theme.path, text: theme.name });
           }
         }
       } catch {

@@ -3,6 +3,11 @@ export interface ConvertResult {
   warnings: string[];
 }
 
+export interface ThemeImportResult {
+  css: string;
+  warnings: string[];
+}
+
 const tokens: Record<string, string[]> = {
   "--background-primary": ["--obs-canvas", "--bg"],
   "--background-secondary": ["--obs-sidebar", "--panel"],
@@ -33,18 +38,70 @@ export function safeBasename(sourceName: string): string {
   return base + ".css";
 }
 
+function resolveRelativePath(from: string, imported: string): string | null {
+  if (/^(?:[a-z]+:|\/|#)/i.test(imported)) return null;
+  const parts = `${from.slice(0, from.lastIndexOf("/") + 1)}${imported}`.split("/");
+  const result: string[] = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (!result.length) return null;
+      result.pop();
+    } else {
+      result.push(part);
+    }
+  }
+  return result.join("/");
+}
+
+/** Inline local CSS imports before conversion; external imports are skipped. */
+export async function inlineLocalImports(
+  css: string,
+  sourcePath: string,
+  readFile: (path: string) => Promise<string>,
+  seen = new Set<string>()
+): Promise<ThemeImportResult> {
+  const warnings: string[] = [];
+  const importPattern = /@import\s+(?:url\(\s*)?["']([^"']+)["']\s*\)?[^;]*;/gi;
+  let output = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = importPattern.exec(css)) !== null) {
+    output += css.slice(lastIndex, match.index);
+    lastIndex = importPattern.lastIndex;
+    const importedPath = resolveRelativePath(sourcePath, match[1]);
+    if (!importedPath) {
+      warnings.push(`Skipped external import: ${match[1]}`);
+      continue;
+    }
+    if (seen.has(importedPath)) {
+      warnings.push(`Skipped circular import: ${importedPath}`);
+      continue;
+    }
+    try {
+      seen.add(importedPath);
+      const imported = await inlineLocalImports(await readFile(importedPath), importedPath, readFile, seen);
+      output += imported.css;
+      warnings.push(...imported.warnings);
+    } catch {
+      warnings.push(`Skipped unreadable import: ${importedPath}`);
+    }
+  }
+  output += css.slice(lastIndex);
+  return { css: output, warnings };
+}
+
 export function convert(css: string): ConvertResult {
-  if (/@import\b|url\s*\(/i.test(css)) {
-    throw new Error(
-      "Theme contains @import or url(); ObsiPub themes must be self-contained"
-    );
+  const warnings: string[] = [];
+  css = css.replace(/@import[^;]*;/gi, "");
+  if (/url\s*\(/i.test(css)) {
+    throw new Error("Theme contains url(); ObsiPub themes must be self-contained");
   }
   const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const modes: Record<string, Map<string, string>> = {
     light: new Map(),
     dark: new Map(),
   };
-  const warnings: string[] = [];
   const blockRegex = /([^{}]+)\{([^{}]*)\}/g;
   let match: RegExpExecArray | null;
   while ((match = blockRegex.exec(clean)) !== null) {

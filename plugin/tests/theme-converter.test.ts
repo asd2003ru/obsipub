@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { convert, isSimpleColor, safeBasename } from "../src/theme-converter";
+import { convert, inlineLocalImports, isSimpleColor, safeBasename } from "../src/theme-converter";
 
 test("maps literal color variables from body.theme-light/theme-dark", () => {
   const css = `body.theme-light {
@@ -28,8 +28,14 @@ test("handles .theme-light and .theme-dark selectors", () => {
   assert.ok(result.css.includes("--accent: #6b8cce;"));
 });
 
-test("rejects @import and url()", () => {
-  assert.throws(() => convert("@import 'other.css'; body.theme-light {}"), /self-contained/);
+test("allows resolved imports and rejects remaining url() assets", async () => {
+  const imported = await inlineLocalImports(
+    "@import 'colors.css'; body.theme-light { --background-primary: #fff; }",
+    "Prism/theme.css",
+    async (path) => path === "Prism/colors.css" ? "body.theme-dark { --text-normal: #000; }" : ""
+  );
+  const result = convert(imported.css);
+  assert.ok(result.css.includes("--text: #000;"));
   assert.throws(() => convert("body { background: url(image.png); }"), /self-contained/);
 });
 

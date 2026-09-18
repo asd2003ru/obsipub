@@ -14,7 +14,7 @@ import {
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
 import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice, randomPublicationPrefix } from "./publish-options";
 import { hasExternalThemeResources, isCustomThemeFileName } from "./theme-utils";
-import { convert, safeBasename } from "./theme-converter";
+import { convert, inlineLocalImports, safeBasename } from "./theme-converter";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -1227,7 +1227,9 @@ class ObsipubSettingTab extends PluginSettingTab {
         const sourcePath = normalizePath(`${sourceDir}/${selected}`);
         try {
           const cssContent = await adapter.read(sourcePath);
-          const result = convert(cssContent);
+          const imported = await inlineLocalImports(cssContent, selected, (relativePath) => adapter.read(normalizePath(`${sourceDir}/${relativePath}`)));
+          const result = convert(imported.css);
+          result.warnings.unshift(...imported.warnings);
           for (const warning of result.warnings) {
             console.warn("Theme converter:", warning);
           }

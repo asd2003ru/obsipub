@@ -18,7 +18,7 @@ import {
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
 import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice } from "./publish-options";
 import { hasExternalThemeResources, isCustomThemeFileName } from "./theme-utils";
-import { builtInThemes } from "./theme-css";
+import { builtInThemes, webBaseCss } from "./theme-css";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -832,7 +832,8 @@ class PublicationOptionsModal extends Modal {
         const themeName = selectedTheme;
         const bannerText = `Theme: ${themeName} (${modeName})`;
 
-        const baseCssString = `body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:1.5rem;background:var(--bg,#fff);color:var(--text,#222);line-height:1.6;}.markdown-body{max-width:720px;margin:0 auto;}.markdown-body h1,.markdown-body h2,.markdown-body h3{font-family:Georgia,"Times New Roman",serif;letter-spacing:-0.03em;line-height:1.15;margin-top:1.5em;margin-bottom:0.5em;}.markdown-body p{line-height:1.75;margin-bottom:1em;}.markdown-body a{color:var(--link-color,var(--accent,#7544a0));text-decoration-thickness:0.1em;}.markdown-rendered .callout{padding:0.85rem 1.1rem;border-left-width:4px;border-radius:0.35rem;background:var(--panel,#f5efe6);border-left-color:var(--accent,#7544a0);}.callout-title{font-weight:bold;padding-bottom:0.3rem;}`;
+        const baseCssString = webBaseCss;
+        const calloutFallback = `.markdown-rendered .callout{border:1px solid var(--border,#dccfb5);border-left-width:4px;border-style:solid;}`;
 
         const htmlDoc = `<!doctype html>
 <html lang="en">
@@ -840,7 +841,7 @@ class PublicationOptionsModal extends Modal {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(bannerText)}</title>
-<style>${baseCssString}\n${cssText}</style>
+<style>${baseCssString}\n${cssText}\n${calloutFallback}</style>
 </head>
 <body class="theme-${modeClass}">
 <div style="margin-bottom:1rem;padding:0.75rem;background:var(--panel,#f5efe6);border:1px solid var(--border,#dccfb5);border-radius:0.35rem;font-family:system-ui,sans-serif;font-size:0.9rem;color:var(--text,#222);">Theme: <strong>${escapeHtml(themeName)}</strong> — Mode: <strong>${escapeHtml(modeName)}</strong></div>

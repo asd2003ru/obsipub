@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/asd2003ru/obsipub/main/install_plug
 
 Then enable the Community Plugin **ObsiPub Publisher** and configure the server URL and API key. Open a Markdown note and run **Publish active note**.
 
-The plugin collects resolved internal notes, embeds, attachments, and Excalidraw files; preserves vault-relative folders; records the selected ObsiPub theme; writes `index.json`; then sends the ZIP to the server. Choose built-in **Classic** or **Contrast**, each with light/dark modes, or place a self-contained CSS file in `<vault>/.obsidian/obsipub/themes/` and select it in the publication dialog. Custom CSS may use `body.theme-light` and `body.theme-dark`; `url()` and `@import` are not supported. The dialog's preview is a style sample, not an exact page preview.
+The plugin collects resolved internal notes, embeds, attachments, and Excalidraw files; preserves vault-relative folders; records the selected ObsiPub theme; writes `index.json`; then sends the ZIP to the server. Choose built-in **Classic** or **Contrast**, each with light/dark modes, or place a self-contained CSS file in `<vault>/.obsidian/obsipub/themes/` and select it in the publication dialog. Custom CSS may use `body.theme-light` and `body.theme-dark`; `url()` and `@import` are not supported. The preview button uploads a temporary archive to the server and opens it in the browser (backend-backed preview), not just a style sample. See [docs/THEMES.md](docs/THEMES.md) for theme authoring details.
 
 In the publish dialog you can set a URL prefix, password, and expiration. Use **Manage publications** to update expiration or remove a publication.
 
@@ -151,7 +151,7 @@ curl -fsSL https://raw.githubusercontent.com/asd2003ru/obsipub/main/install_plug
 
 Затем включите плагин сообщества **ObsiPub Publisher** и настройте URL сервера и API-ключ. Откройте заметку Markdown и запустите **Publish active note**.
 
-Плагин собирает разрешённые внутренние заметки, встраивания, вложения и файлы Excalidraw; сохраняет папки относительно vault; записывает `index.json`; затем отправляет ZIP на сервер. Выберите встроенную тему **Classic** или **Contrast**, каждая с режимами light/dark, или поместите собственный CSS-файл в `<vault>/.obsidian/obsipub/themes/` и выберите его в диалоге публикации. Пользовательские CSS могут использовать `body.theme-light` и `body.theme-dark`; `url()` и `@import` не поддерживаются. Предпросмотр в диалоге — это образец стиля, не точный предпросмотр страницы.
+Плагин собирает разрешённые внутренние заметки, встраивания, вложения и файлы Excalidraw; сохраняет папки относительно vault; записывает `index.json`; затем отправляет ZIP на сервер. Выберите встроенную тему **Classic** или **Contrast**, каждая с режимами light/dark, или поместите собственный CSS-файл в `<vault>/.obsidian/obsipub/themes/` и выберите его в диалоге публикации. Пользовательские CSS могут использовать `body.theme-light` и `body.theme-dark`; `url()` и `@import` не поддерживаются. Кнопка предпросмотра загружает временный архив на сервер и открывает его в браузере (предпросмотр с бэкендом), а не просто образец стиля. Подробности по темам см. в [docs/THEMES.md](docs/THEMES.md).
 
 В диалоге публикации можно задать префикс URL, пароль и срок действия. Команда **Manage publications** позволяет изменить срок действия или удалить публикацию.
 

@@ -28,6 +28,7 @@ type Manifest struct {
 	Version                int    `json:"version"`
 	Index                  string `json:"index"`
 	Theme                  string `json:"theme,omitempty"`
+	Font                   string `json:"font,omitempty"`
 	DefaultTheme           string `json:"defaultTheme"`
 	ShowLineNumbers        bool   `json:"showLineNumbers"`
 	ShowArticleLineNumbers bool   `json:"showArticleLineNumbers"`
@@ -43,6 +44,13 @@ func NormalizeThemeMode(value string) string {
 		return value
 	}
 	return "auto"
+}
+
+func NormalizeFontProfile(value string) string {
+	if value == "system" || value == "serif" || value == "mono" {
+		return value
+	}
+	return ""
 }
 
 func ValidatePrefix(prefix string) error {
@@ -168,15 +176,35 @@ func (m Manifest) Validate(root string) error {
 	if m.DefaultTheme != "" && m.DefaultTheme != "auto" && m.DefaultTheme != "light" && m.DefaultTheme != "dark" {
 		return fmt.Errorf("invalid default theme: %q", m.DefaultTheme)
 	}
+	if m.Font != "" && m.Font != "system" && m.Font != "serif" && m.Font != "mono" {
+		return fmt.Errorf("invalid font profile: %q", m.Font)
+	}
 	if m.Theme != "" {
-		if m.Theme == "classic" || m.Theme == "contrast" {
+		if m.Theme == "classic" || m.Theme == "contrast" || m.Theme == "nord" {
 			// Built-in themes require no archive file validation.
 		} else {
 			theme, err := normalizePath(m.Theme)
-			if err != nil || theme != m.Theme || !strings.HasPrefix(theme, ".themes/obsipub/") ||
-				strings.Contains(strings.TrimPrefix(theme, ".themes/obsipub/"), "/") ||
-				!strings.EqualFold(filepath.Ext(theme), ".css") {
+			if err != nil || theme != m.Theme || !strings.HasPrefix(theme, ".themes/obsipub/") {
 				return fmt.Errorf("invalid theme entry")
+			}
+			suffix := strings.TrimPrefix(theme, ".themes/obsipub/")
+			if !strings.HasSuffix(suffix, "/theme.css") {
+				return fmt.Errorf("invalid theme entry")
+			}
+			dirPart := strings.TrimSuffix(suffix, "/theme.css")
+			if dirPart == "" || dirPart == "." || dirPart == ".." || strings.Contains(dirPart, "\\") || strings.Contains(dirPart, "..") {
+				return fmt.Errorf("invalid theme entry")
+			}
+			for _, segment := range strings.Split(dirPart, "/") {
+				if segment == "" || segment == "." || segment == ".." {
+					return fmt.Errorf("invalid theme entry")
+				}
+				for _, r := range segment {
+					if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+						continue
+					}
+					return fmt.Errorf("invalid theme entry")
+				}
 			}
 			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(theme))); err != nil {
 				return fmt.Errorf("theme entry %q: %w", theme, err)
@@ -196,6 +224,7 @@ func Load(root string) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("decode index.json: %w", err)
 	}
 	manifest.DefaultTheme = NormalizeThemeMode(manifest.DefaultTheme)
+	manifest.Font = NormalizeFontProfile(manifest.Font)
 	if err := manifest.Validate(root); err != nil {
 		return Manifest{}, err
 	}
@@ -204,6 +233,7 @@ func Load(root string) (Manifest, error) {
 
 func Write(root string, manifest Manifest) error {
 	manifest.DefaultTheme = NormalizeThemeMode(manifest.DefaultTheme)
+	manifest.Font = NormalizeFontProfile(manifest.Font)
 	if err := manifest.Validate(root); err != nil {
 		return err
 	}

@@ -8,7 +8,8 @@ export interface PublicationOptions {
   fullWidth?: boolean;
   resetProtection?: boolean;
   defaultTheme?: ThemeChoice;
-  theme?: string; // design theme: "classic" | "contrast" | ".themes/<path>.css"
+  theme?: string; // design theme: "classic" | "contrast" | "nord" | ".themes/<path>.css"
+  font?: string; // font profile: "system" | "serif" | "mono"
 }
 
 const VALID_THEMES = ["auto", "light", "dark"] as const;

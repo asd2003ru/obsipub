@@ -7,3 +7,6 @@ var ClassicCSS []byte
 
 //go:embed contrast.css
 var ContrastCSS []byte
+
+//go:embed nord.css
+var NordCSS []byte

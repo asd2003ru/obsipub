@@ -448,6 +448,31 @@ func TestManifestFullWidthDefaultAndTrue(t *testing.T) {
 	}
 }
 
+func TestFontProfileNormalizationAndValidation(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "index.md"), []byte("# hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, profile := range []string{"", "system", "serif", "mono"} {
+		m := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Font: profile}
+		if err := Write(root, m); err != nil {
+			t.Fatalf("font %q rejected unexpectedly: %v", profile, err)
+		}
+	}
+	// Normalization converts invalid font to empty; validation then passes.
+	mInvalid := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Font: "invalid-font"}
+	if err := Write(root, mInvalid); err != nil {
+		t.Fatalf("normalized invalid font should not fail: %v", err)
+	}
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Font != "" {
+		t.Fatalf("expected normalized empty font, got %q", loaded.Font)
+	}
+}
+
 func TestThemeValidationAcceptsBuiltInsAndRejectsInvalidPaths(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "index.md"), []byte("# hello"), 0o644); err != nil {
@@ -465,15 +490,15 @@ func TestThemeValidationAcceptsBuiltInsAndRejectsInvalidPaths(t *testing.T) {
 	if err := Write(root, m); err == nil {
 		t.Fatal("traversal theme entry accepted")
 	}
-	// Custom theme file that exists and is contained under .themes/
-	if err := os.MkdirAll(filepath.Join(root, ".themes/obsipub"), 0o755); err != nil {
+	// Custom folder theme that exists and is contained under .themes/
+	if err := os.MkdirAll(filepath.Join(root, ".themes/obsipub/custom"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, ".themes/obsipub/custom.css"), []byte("body{}"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".themes/obsipub/custom/theme.css"), []byte("body{}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	mCustom := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Theme: ".themes/obsipub/custom.css"}
+	mCustom := Manifest{Version: 1, Index: "index.md", Tree: Node{Path: "index.md", Name: "index"}, Theme: ".themes/obsipub/custom/theme.css"}
 	if err := Write(root, mCustom); err != nil {
-		t.Fatalf("valid custom theme rejected: %v", err)
+		t.Fatalf("valid folder theme rejected: %v", err)
 	}
 }

@@ -173,6 +173,32 @@ test("rewriteFrontmatterWithObsipub removes existing nested obsipub block safely
   assert.ok(!result.includes("  url: old"));
 });
 
+test("manifest includes optional font profile and remains backward-compatible", () => {
+  const zip = createPublishZip([{ path: "start.md", bytes: new TextEncoder().encode("# Start") }], {
+    version: 1, index: "start.md", theme: "classic", font: "mono", defaultTheme: "auto", showLineNumbers: false, tree: { path: "start.md", name: "start" }
+  });
+  const manifest = JSON.parse(new TextDecoder().decode(unzipSync(zip)["index.json"]));
+  assert.equal(manifest.font, "mono");
+  assert.equal(manifest.theme, "classic");
+});
+
+test("manifest without font remains compatible", () => {
+  const zip = createPublishZip([], { version: 1, index: "start.md", theme: "nord", showLineNumbers: false, tree: { path: "start.md", name: "start" } });
+  const manifest = JSON.parse(new TextDecoder().decode(unzipSync(zip)["index.json"]));
+  assert.equal(manifest.theme, "nord");
+  assert.equal(manifest.font, undefined);
+});
+
+test("rewriteFrontmatterWithObsipub writes font when provided", () => {
+  const input = "---\ntitle: Note\n---\n# Body\n";
+  const output = rewriteFrontmatterWithObsipub(input, {
+    url: "", prefix: "", expire: null, showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, protected: false, theme: "nord", font: "serif"
+  });
+  assert.ok(output.includes("obsipub_theme: nord"));
+  assert.ok(output.includes("obsipub_font: serif"));
+  assert.ok(output.includes("title: Note"));
+});
+
 test("preview upload headers use random prefix, 60-second TTL, and empty password", () => {
   const prefix = randomPublicationPrefix();
   assert.equal(isValidPublicationPrefix(prefix), true);

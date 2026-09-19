@@ -2211,3 +2211,31 @@ body.theme-dark .markdown-rendered .code-block pre {
   width: 100%;
   margin: 1rem 0;
 }
+
+/* Font profiles — safe system stacks only */
+.font-system .markdown-body,
+body.font-system .markdown-body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body.font-system .markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+}
+
+.font-serif .markdown-body,
+body.font-serif .markdown-body {
+  font-family: Georgia, "Times New Roman", "Noto Serif", serif;
+}
+
+body.font-serif .markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+}
+
+.font-mono .markdown-body,
+body.font-mono .markdown-body {
+  font-family: "Courier New", Consolas, "Liberation Mono", monospace;
+}
+
+body.font-mono .markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+}

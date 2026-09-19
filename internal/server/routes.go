@@ -56,6 +56,7 @@ func registerRoutes(app *fiber.App, base string, signer *authSigner, coordinator
 	app.Get(base+"/api/links", wrapProtected(func(p *publication, c fiber.Ctx) error { return p.links(c) }))
 	app.Get(base+"/api/raw", wrapProtected(func(p *publication, c fiber.Ctx) error { return p.raw(c) }))
 	app.Get(base+"/api/theme", wrapProtected(func(p *publication, c fiber.Ctx) error { return p.theme(c) }))
+	app.Get(base+"/api/theme/*", wrapProtected(func(p *publication, c fiber.Ctx) error { return p.theme(c) }))
 	app.Get(base+"/api/auth/status", wrapPublic(func(p *publication, c fiber.Ctx) error { return p.authStatus(c, signer) }))
 	app.Post(base+"/api/auth/login", wrapPublic(func(p *publication, c fiber.Ctx) error { return p.authLogin(c, signer) }))
 }

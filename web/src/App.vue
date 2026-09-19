@@ -9,8 +9,9 @@ import { locale, t } from './i18n.js'
 import { isExternalUrl, isMarkdownNoteTarget, publicationBasePath, stripPublicationBase, underPublication } from './paths.js'
 import { copyableMarkdown, stripFrontMatter } from './markdown-utils.js'
 import { parseEmphasis } from './render-inline.js'
+import { renderNestedList } from './markdown-lists.js'
 
-const config = ref({ ready: false, index: '', theme: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
+const config = ref({ ready: false, index: '', theme: '', font: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
 const auth = ref({ ready: false, protected: false, authenticated: false })
 const authPassword = ref('')
 const authError = ref('')
@@ -301,6 +302,7 @@ async function loadConfig() {
       ready: Boolean(data.ready ?? data.Ready),
       index: data.index || data.Index || '',
       theme: data.theme || data.Theme || '',
+      font: data.font || data.Font || '',
       defaultTheme: normalizeThemeMode(data.defaultTheme ?? data.DefaultTheme),
       showLineNumbers: Boolean(data.showLineNumbers ?? data.ShowLineNumbers),
       showArticleLineNumbers: Boolean(data.showArticleLineNumbers ?? data.ShowArticleLineNumbers),
@@ -315,8 +317,9 @@ async function loadConfig() {
       applyObsidianThemeClass()
     }
     localFullWidth.value = Boolean(config.value.fullWidth)
+    applyFontProfile(config.value.font || data.font || '')
   } catch (err) {
-    config.value = { ready: false, index: '', theme: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null }
+    config.value = { ready: false, index: '', theme: '', font: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null }
     console.warn('Cannot load /api/config:', err)
   }
 }
@@ -424,7 +427,17 @@ function attachTheme(name) {
   if (!name) return
   const link = document.createElement('link')
   link.rel = 'stylesheet'
-  link.href = `${underPublication(basePath, '/api/theme')}?v=${encodeURIComponent(name)}`
+  let themeUrl = ''
+  const folderMatch = String(name).match(/\.themes\/obsipub\/(.+?)\/theme\.css$/)
+  if (folderMatch) {
+    themeUrl = `${underPublication(basePath, `/api/theme/${folderMatch[1]}/theme.css`)}`
+  } else if (['classic', 'contrast', 'nord'].includes(name)) {
+    // Legacy manifests may still name built-ins directly.
+    themeUrl = `${underPublication(basePath, `/api/theme/${name}/theme.css`)}`
+  } else {
+    themeUrl = `${underPublication(basePath, `/api/theme/${name}/theme.css`)}`
+  }
+  link.href = themeUrl
   link.dataset.obsipubTheme = name
   document.head.appendChild(link)
 }
@@ -470,6 +483,12 @@ function applyObsidianThemeClass() {
   document.body.classList.remove('theme-light', 'theme-dark')
   const mode = themeMode.value === 'auto' ? (prefersDark ? 'theme-dark' : 'theme-light') : (themeMode.value === 'dark' ? 'theme-dark' : 'theme-light')
   document.body.classList.add(mode)
+}
+
+function applyFontProfile(value) {
+  const profile = value === 'serif' ? 'serif' : value === 'mono' ? 'mono' : 'system'
+  document.body.classList.remove('font-system', 'font-serif', 'font-mono')
+  document.body.classList.add('font-' + profile)
 }
 
 async function loadLinks() {
@@ -803,15 +822,6 @@ function isHorizontalRule(line) {
   return /^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(String(line).trim())
 }
 
-function taskListItem(line) {
-  const match = String(line).match(/^[-*+]\s+\[([^\]])\]\s+(.+)$/)
-  if (!match) return null
-  return {
-    checked: match[1].trim() !== '',
-    text: match[2],
-  }
-}
-
 function renderTable(header, divider, rows, fromPath) {
   const alignments = divider.map(tableAlignment)
   const renderCells = (cells, tag) => header.map((_, index) => {
@@ -891,26 +901,10 @@ function renderMarkdown(source, fromPath) {
       continue
     }
 
-    if (/^[-*+]\s+/.test(line)) {
-      const items = []
-      while (i < lines.length && /^[-*+]\s+/.test(lines[i])) {
-        const task = taskListItem(lines[i])
-        if (task) {
-          const checked = task.checked ? ' checked' : ''
-          items.push(`<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled${checked}>${renderInline(task.text, fromPath)}</li>`)
-          i += 1
-        } else {
-          items.push(`<li>${renderInline(lines[i++].replace(/^[-*+]\s+/, ''), fromPath)}</li>`)
-        }
-      }
-      html.push(articleBlock(`<ul>${items.join('')}</ul>`, sourceLine))
-      continue
-    }
-
-    if (/^\d+\.\s+/.test(line)) {
-      const items = []
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) items.push(`<li>${renderInline(lines[i++].replace(/^\d+\.\s+/, ''), fromPath)}</li>`)
-      html.push(articleBlock(`<ol>${items.join('')}</ol>`, sourceLine))
+    if (/^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+      const result = renderNestedList(lines, i, (text) => renderInline(text, fromPath))
+      html.push(articleBlock(result.html, sourceLine))
+      i = result.nextIndex
       continue
     }
 

@@ -1,0 +1,76 @@
+/* ObsiPub Nord Theme — built-in */
+/* Based on Tinted Theming / Base16 Nord palette */
+/* Self-contained; works with body.theme-light / body.theme-dark */
+
+body.theme-light {
+  --bg: #eceff4;
+  --panel: #e5e9f0;
+  --text: #2e3440;
+  --muted: #4c566a;
+  --border: #d8dee9;
+  --accent: #5e81ac;
+  --accent-soft: rgba(94, 129, 172, 0.12);
+  --danger: #bf616a;
+  --danger-bg: rgba(191, 97, 106, 0.08);
+  --code-bg: #d8dee9;
+  --shadow: 0 18px 50px rgba(46, 52, 64, 0.08);
+  --obs-canvas: #eceff4;
+  --obs-sidebar: #e5e9f0;
+  --obs-topbar: #d8dee9;
+  --obs-border: #d8dee9;
+  --obs-text: #2e3440;
+  --obs-muted: #4c566a;
+  --obs-code-bg: #d8dee9;
+  --link-color: #5e81ac;
+  --callout-color-note: #81a1c1;
+  --callout-color-tip: #a3be8c;
+  --callout-color-warning: #ebcb8b;
+  --callout-color-danger: #bf616a;
+  --callout-color-question: #b48ead;
+  --callout-color-quote: #4c566a;
+}
+
+body.theme-dark {
+  --bg: #2e3440;
+  --panel: #3b4252;
+  --text: #eceff4;
+  --muted: #d8dee9;
+  --border: #4c566a;
+  --accent: #88c0d0;
+  --accent-soft: rgba(136, 192, 208, 0.15);
+  --danger: #bf616a;
+  --danger-bg: rgba(191, 97, 106, 0.12);
+  --code-bg: #3b4252;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  --obs-canvas: #2e3440;
+  --obs-sidebar: #3b4252;
+  --obs-topbar: #434c5e;
+  --obs-border: #4c566a;
+  --obs-text: #eceff4;
+  --obs-muted: #d8dee9;
+  --obs-code-bg: #3b4252;
+  --link-color: #88c0d0;
+  --callout-color-note: #81a1c1;
+  --callout-color-tip: #a3be8c;
+  --callout-color-warning: #ebcb8b;
+  --callout-color-danger: #bf616a;
+  --callout-color-question: #b48ead;
+  --callout-color-quote: #d8dee9;
+}
+
+/* Nord typography adjustments */
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.markdown-body p { line-height: 1.7; }
+
+.markdown-body a { color: var(--link-color, var(--accent)); text-decoration-thickness: 0.12em; }
+
+.markdown-rendered .callout {
+  border-left-width: 4px;
+  border-radius: 0.4rem;
+}

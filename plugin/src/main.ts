@@ -15,7 +15,8 @@ import {
 import { ArchiveEntry, createPublishZip, DependencyTreeNode, rewriteFrontmatterWithObsipub, sanitizeMarkdownFrontmatter } from "./archive";
 import { buildPublicationUploadHeaders, currentObsidianTheme, isFutureExpiry, isValidPublicationPrefix, normalizeTheme, parsePublicationResponse, PublicationOptions, publicationURL, quickAuthPublicationURL, PublicationResponse, ThemeChoice, randomPublicationPrefix } from "./publish-options";
 import { hasExternalThemeResources, isCustomThemeFileName } from "./theme-utils";
-import { convert, inlineCssUrls, inlineLocalImports, safeBasename } from "./theme-converter";
+import { parseTaintedYAML, generateThemeCSS, sanitizeSchemeId, safeBasename } from "./theme-converter";
+import { builtInThemes } from "./theme-css";
 
 interface ObsipubSettings {
   serverUrl: string;
@@ -121,16 +122,27 @@ function t(key: string): string {
     "themeDesignDesc": "Встроенная тема или CSS-файл из .obsidian/obsipub/themes",
     "themeClassic": "Классическая (встроенная)",
     "themeContrast": "Контрастная (встроенная)",
+    "themeNord": "Nord (встроенная)",
+    "fontProfileName": "Шрифт публикации",
+    "fontProfileDesc": "Системный стек шрифтов для текста публикации.",
+    "fontSystem": "Системный (по умолчанию)",
+    "fontSerif": "С засечками",
+    "fontMono": "Моноширинный",
     "themePreview": "Предпросмотр темы",
     "themePreviewSample": "Пример оформления (не точный предпросмотр публикации)",
     "themeUnavailable": "Выбранная тема недоступна.",
-    "themeConverterName": "Конвертировать тему Obsidian",
-    "themeConverterDesc": "Выберите CSS-файл из .obsidian/themes. Переносит цвета в тему ObsiPub и перезаписывает одноимённый файл.",
-    "themeConverterBtn": "Конвертировать в тему ObsiPub",
-    "themeConverterSuccess": "Тема конвертирована в {file}",
-    "themeConverterWarning": "Тема сохранена с предупреждениями: {count}",
-    "themeConverterFailed": "Ошибка конвертации темы",
-    "themeConverterNoThemes": "Темы в .obsidian/themes не найдены.",
+    "tintedConverterName": "Конвертер Tinted",
+    "tintedConverterDesc": "Конвертировать схему Tinted из GitHub в тему .obsidian/obsipub/themes/.",
+    "tintedConvertBtn": "Конвертировать",
+    "tintedConverted": "Тема сконвертирована: {id}",
+    "tintedDeleteBtn": "Удалить выбранную тему",
+    "tintedDeleted": "Тема удалена: {id}",
+    "tintedNoScheme": "Введите ID схемы.",
+    "tintedInvalidId": "Некорректный ID схемы.",
+    "tintedFetchFailed": "Не удалось загрузить схему.",
+    "tintedConvertFailed": "Ошибка конвертации",
+    "tintedNoThemes": "Пользовательские темы не найдены.",
+    "tintedConfirmDelete": "Подтвердить удаление",
   };
   const en: Record<string, string> = {
     "managePublicationsTitle": "Manage publications",
@@ -222,16 +234,27 @@ function t(key: string): string {
     "themeDesignDesc": "Built-in theme or a CSS file from .obsidian/obsipub/themes",
     "themeClassic": "Classic (built-in)",
     "themeContrast": "Contrast (built-in)",
+    "themeNord": "Nord (built-in)",
+    "fontProfileName": "Publication font",
+    "fontProfileDesc": "Safe system font stack for publication text.",
+    "fontSystem": "System (default)",
+    "fontSerif": "Serif",
+    "fontMono": "Mono",
     "themePreview": "Preview theme",
     "themePreviewSample": "Style sample (not an exact publication preview)",
     "themeUnavailable": "Selected theme is unavailable.",
-    "themeConverterName": "Convert Obsidian theme",
-    "themeConverterDesc": "Select a CSS file from .obsidian/themes. Converts its colors to an ObsiPub theme and overwrites a file with the same name.",
-    "themeConverterBtn": "Convert to ObsiPub theme",
-    "themeConverterSuccess": "Theme converted to {file}",
-    "themeConverterWarning": "Theme saved with {count} warning(s)",
-    "themeConverterFailed": "Theme conversion failed",
-    "themeConverterNoThemes": "No themes found in .obsidian/themes.",
+    "tintedConverterName": "Tinted converter",
+    "tintedConverterDesc": "Convert a Tinted scheme from GitHub to .obsidian/obsipub/themes/.",
+    "tintedConvertBtn": "Convert",
+    "tintedConverted": "Theme converted: {id}",
+    "tintedDeleteBtn": "Delete selected/user theme",
+    "tintedDeleted": "Theme deleted: {id}",
+    "tintedNoScheme": "Enter a scheme ID.",
+    "tintedInvalidId": "Invalid scheme ID.",
+    "tintedFetchFailed": "Failed to fetch scheme.",
+    "tintedConvertFailed": "Conversion failed",
+    "tintedNoThemes": "No user themes found.",
+    "tintedConfirmDelete": "Confirm delete",
   };
   return isRussian() ? (ru[key] ?? en[key] ?? key) : (en[key] ?? key);
 }
@@ -244,25 +267,6 @@ const DEFAULT_SETTINGS: ObsipubSettings = {
 interface AdapterListing {
   files: string[];
   folders: string[];
-}
-
-interface ObsidianThemeChoice {
-  name: string;
-  path: string;
-}
-
-function resourceMimeType(path: string): string {
-  const ext = path.split(/[?#]/)[0].split(".").pop()?.toLowerCase();
-  return ({ svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf", otf: "font/otf" } as Record<string, string>)[ext || ""] || "application/octet-stream";
-}
-
-function dataUrlFromBytes(bytes: ArrayBuffer, mime: string): string {
-  const values = new Uint8Array(bytes);
-  let binary = "";
-  for (let i = 0; i < values.length; i += 0x8000) {
-    binary += String.fromCharCode(...values.subarray(i, i + 0x8000));
-  }
-  return `data:${mime};base64,${window.btoa(binary)}`;
 }
 
 export default class ObsipubPlugin extends Plugin {
@@ -328,6 +332,7 @@ export default class ObsipubPlugin extends Plugin {
       const initialFullWidth = fm.obsipub_fullWidth === true;
       let initialProtected = fm.obsipub_protected === true;
       const initialExpiresAt = typeof fm.obsipub_expire === "string" ? fm.obsipub_expire : "";
+      const initialFont = (typeof fm.obsipub_font === "string" && (fm.obsipub_font === "system" || fm.obsipub_font === "serif" || fm.obsipub_font === "mono")) ? fm.obsipub_font : "system";
       const initialDefaultTheme = currentObsidianTheme();
 
       // Validate expired publication using existing admin endpoint
@@ -393,7 +398,7 @@ export default class ObsipubPlugin extends Plugin {
       const customThemes = await this.discoverCustomThemes();
       const initialThemeChoice = typeof fm.obsipub_theme === "string" ? fm.obsipub_theme : "";
       let initialThemeValue = "classic"; // default must always be built-in Classic
-      if (initialThemeChoice === "classic" || initialThemeChoice === "contrast") {
+      if (initialThemeChoice === "classic" || initialThemeChoice === "contrast" || initialThemeChoice === "nord") {
         initialThemeValue = initialThemeChoice;
       } else if (initialThemeChoice && customThemes.includes(initialThemeChoice)) {
         initialThemeValue = initialThemeChoice;
@@ -415,6 +420,7 @@ export default class ObsipubPlugin extends Plugin {
         initialExpiresAt,
         initialThemeValue,
         initialThemeChoice,
+        initialFont,
         customThemes,
         this,
         markdownText,
@@ -437,6 +443,7 @@ export default class ObsipubPlugin extends Plugin {
         version: 1 as const,
         index: root.path,
         theme,
+        font: options.font || "",
         defaultTheme: normalizeTheme(options.defaultTheme),
         showLineNumbers: options.showLineNumbers,
         showArticleLineNumbers: !!options.showArticleLineNumbers,
@@ -455,7 +462,8 @@ export default class ObsipubPlugin extends Plugin {
         !!options.showArticleLineNumbers,
         !!options.fullWidth,
         options.resetProtection ? false : (initialProtected || !!options.password),
-        options.theme || ""
+        options.theme || "",
+        options.font || ""
       );
       new Notice(`${t("publishPublishedFiles")} ${files.size} (${Math.ceil(zip.byteLength / 1024)} KiB): ${publicationUrl}`);
     } catch (error) {
@@ -514,87 +522,95 @@ export default class ObsipubPlugin extends Plugin {
     })));
   }
 
-  /** Discover custom theme CSS files in the vault config's obsipub/themes folder. */
+  /** Discover safe direct child theme directories under .obsidian/obsipub/themes. */
   private async discoverCustomThemes(): Promise<string[]> {
     const adapter = this.app.vault.adapter;
     const themesDir = normalizePath(".obsidian/obsipub/themes");
     if (!(await adapter.exists(themesDir))) return [];
     try {
       const listing = await adapter.list(themesDir) as AdapterListing;
-      return listing.files
-        .filter((path) => path.toLowerCase().endsWith(".css"))
-        .map((path) => path.slice(themesDir.length + 1))
-        .filter(isCustomThemeFileName)
-        .sort();
-    } catch {
-      return [];
-    }
-  }
-
-  /** Discover Obsidian theme CSS files in the vault's .obsidian/themes folder. */
-  async discoverObsidianThemes(): Promise<ObsidianThemeChoice[]> {
-    const adapter = this.app.vault.adapter;
-    const themesDir = normalizePath(".obsidian/themes");
-    if (!(await adapter.exists(themesDir))) return [];
-    const choices: ObsidianThemeChoice[] = [];
-    const visit = async (directory: string, relativePrefix: string): Promise<void> => {
-      const listing = await adapter.list(directory) as AdapterListing;
-      for (const filePath of listing.files) {
-        if (!filePath.toLowerCase().endsWith(".css")) continue;
-        const relativePath = relativePrefix ? `${relativePrefix}/${filePath.slice(directory.length + 1)}` : filePath.slice(directory.length + 1);
-        if (!/^[^/\\\x00-\x1f]+(?:\/[^/\\\x00-\x1f]+)*\.css$/i.test(relativePath)) continue;
-        const folder = relativePath.includes("/") ? relativePath.slice(0, relativePath.lastIndexOf("/")) : "";
-        let name = relativePath.slice(relativePath.lastIndexOf("/") + 1, -4);
-        if (folder) {
-          try {
-            const manifestPath = normalizePath(`${themesDir}/${folder}/manifest.json`);
-            const manifest = JSON.parse(await adapter.read(manifestPath)) as { name?: unknown };
-            if (typeof manifest.name === "string" && manifest.name.trim()) name = manifest.name.trim();
-          } catch { /* fall back to the CSS filename */ }
+      const folders = (listing.folders || []).filter((folderPath: string) => {
+        const name = folderPath.slice(folderPath.lastIndexOf("/") + 1);
+        return /^[^/\\\x00-\x1f]+$/.test(name);
+      });
+      const result: string[] = [];
+      for (const folderPath of folders) {
+        const folderName = folderPath.slice(folderPath.lastIndexOf("/") + 1);
+        const themePath = normalizePath(`${themesDir}/${folderName}`);
+        const entryCss = normalizePath(`${themePath}/theme.css`);
+        const entryManifest = normalizePath(`${themePath}/manifest.json`);
+        try {
+          const entryExists = await adapter.exists(entryCss);
+          // Theme folder must contain theme.css
+          if (entryExists) {
+            result.push(folderName);
+          }
+        } catch {
+          // skip unreadable folders
         }
-        choices.push({ name, path: relativePath });
       }
-      for (const folderPath of listing.folders) {
-        const folderName = folderPath.slice(directory.length + 1);
-        if (!/^[^/\\\x00-\x1f]+$/.test(folderName)) continue;
-        await visit(folderPath, relativePrefix ? `${relativePrefix}/${folderName}` : folderName);
-      }
-    };
-    try {
-      await visit(themesDir, "");
-      return choices.sort((a, b) => a.name.localeCompare(b.name));
+      return result.sort();
     } catch {
       return [];
     }
   }
 
-  /** Packages the selected theme (built-in or custom CSS) into the archive. Returns manifest theme value. */
+  /** Packages the selected theme (built-in or folder-based) into the archive. Returns manifest theme value. */
   private async packageTheme(entries: ArchiveEntry[], themeChoice: string): Promise<string> {
-    if (themeChoice === "classic" || themeChoice === "contrast") {
-      return themeChoice;
+    if (themeChoice === "classic" || themeChoice === "contrast" || themeChoice === "nord") {
+      entries.push({
+        path: `.themes/obsipub/${themeChoice}/theme.css`,
+        bytes: new TextEncoder().encode(builtInThemes[themeChoice] || "")
+      });
+      return `.themes/obsipub/${themeChoice}/theme.css`;
     }
-    // Only support top-level CSS files under .obsidian/obsipub/themes; no subdirectories or asset packaging.
-    if (!isCustomThemeFileName(themeChoice)) {
-      throw new Error(`Theme path must be a top-level file name, not a path: ${themeChoice}`);
-    }
-    const basename = themeChoice;
-    const sourcePath = normalizePath(`.obsidian/obsipub/themes/${basename}`);
     const adapter = this.app.vault.adapter;
-    if (!(await adapter.exists(sourcePath))) {
-      throw new Error(`Theme file not found: ${sourcePath}`);
+    const themesDir = normalizePath(".obsidian/obsipub/themes");
+    const folderPath = normalizePath(`${themesDir}/${themeChoice}`);
+    const folderExists = await adapter.exists(folderPath);
+    if (folderExists) {
+      // Folder-based theme: package entire directory safely.
+      const collectFiles = async (dirPath: string, archivePrefix: string) => {
+        const files: ArchiveEntry[] = [];
+        const visit = async (currentDir: string, relativePrefix: string) => {
+          const listing = await adapter.list(currentDir) as AdapterListing;
+          for (const filePath of listing.files || []) {
+            const fileName = filePath.slice(filePath.lastIndexOf("/") + 1);
+            if (!/^[^/\\\x00-\x1f]+$/.test(fileName)) continue;
+            const relativePath = relativePrefix ? `${relativePrefix}/${fileName}` : fileName;
+            const archivePath = normalizePath(`.themes/obsipub/${themeChoice}/${relativePath}`);
+            const bytes = new Uint8Array(await adapter.readBinary(filePath));
+            files.push({ path: archivePath, bytes });
+          }
+          for (const subFolderPath of listing.folders || []) {
+            const subFolderName = subFolderPath.slice(subFolderPath.lastIndexOf("/") + 1);
+            if (!/^[^/\\\x00-\x1f]+$/.test(subFolderName)) continue;
+            const newRelative = relativePrefix ? `${relativePrefix}/${subFolderName}` : subFolderName;
+            await visit(subFolderPath, newRelative);
+          }
+        };
+        await visit(dirPath, "");
+        return files;
+      };
+      const themeEntries = await collectFiles(folderPath, "");
+      // Ensure at least theme.css is included; if folder has no theme.css, reject.
+      const hasEntryCss = themeEntries.some((e) => e.path === `.themes/obsipub/${themeChoice}/theme.css`);
+      if (!hasEntryCss) {
+        throw new Error(`Theme folder must contain theme.css: ${themeChoice}`);
+      }
+      // Validate entry CSS does not have external resources (keep protection)
+      const entryCssEntry = themeEntries.find((e) => e.path === `.themes/obsipub/${themeChoice}/theme.css`);
+      if (entryCssEntry) {
+        const cssContent = new TextDecoder().decode(entryCssEntry.bytes);
+        if (hasExternalThemeResources(cssContent)) {
+          throw new Error(`Theme CSS must be self-contained (url() and @import are not supported): ${themeChoice}`);
+        }
+      }
+      entries.push(...themeEntries);
+      return `.themes/obsipub/${themeChoice}/theme.css`;
     }
-    const cssBytes = new Uint8Array(await adapter.readBinary(sourcePath));
-    // Reject CSS with relative url()/@import resources to avoid broken links.
-    const cssContent = new TextDecoder().decode(cssBytes);
-    if (hasExternalThemeResources(cssContent)) {
-      throw new Error(`Theme CSS must be self-contained (url() and @import are not supported): ${basename}`);
-    }
-    const targetPath = normalizePath(`.themes/obsipub/${basename}`);
-    entries.push({
-      path: targetPath,
-      bytes: cssBytes
-    });
-    return targetPath;
+    // Legacy single-file theme support removed per requirements.
+    throw new Error(`Theme not found or unavailable: ${themeChoice}`);
   }
 
   private async upload(zip: Uint8Array, options: PublicationOptions): Promise<PublicationResponse> {
@@ -617,7 +633,8 @@ export default class ObsipubPlugin extends Plugin {
     defaultTheme: ThemeChoice,
     showLineNumbers: boolean,
     showArticleLineNumbers: boolean,
-    fullWidth: boolean
+    fullWidth: boolean,
+    font: string
   ): Promise<string> {
     const { files, tree } = this.collectDependencies(root);
     const rawEntries = await this.readFiles(files);
@@ -632,6 +649,7 @@ export default class ObsipubPlugin extends Plugin {
       version: 1 as const,
       index: root.path,
       theme,
+      font,
       defaultTheme: normalizeTheme(defaultTheme),
       showLineNumbers,
       showArticleLineNumbers: !!showArticleLineNumbers,
@@ -648,7 +666,8 @@ export default class ObsipubPlugin extends Plugin {
       showArticleLineNumbers: !!showArticleLineNumbers,
       fullWidth: !!fullWidth,
       defaultTheme,
-      theme: themeChoice
+      theme: themeChoice,
+      font
     };
     const publication = await this.upload(zip, options);
     return publicationURL(this.settings.serverUrl, publication.prefix);
@@ -671,7 +690,7 @@ export default class ObsipubPlugin extends Plugin {
     }
   }
 
-  private async updateFrontmatterAfterPublish(file: TFile, url: string, prefix: string, expiresAt: number | null | undefined, showLineNumbers: boolean, showArticleLineNumbers: boolean, fullWidth: boolean, protectedPublication: boolean, themeChoice?: string): Promise<void> {
+  private async updateFrontmatterAfterPublish(file: TFile, url: string, prefix: string, expiresAt: number | null | undefined, showLineNumbers: boolean, showArticleLineNumbers: boolean, fullWidth: boolean, protectedPublication: boolean, themeChoice?: string, fontProfile?: string): Promise<void> {
     const content = await this.app.vault.read(file);
     const rewritten = rewriteFrontmatterWithObsipub(content, {
       url,
@@ -681,7 +700,8 @@ export default class ObsipubPlugin extends Plugin {
       showArticleLineNumbers,
       fullWidth,
       protected: protectedPublication,
-      theme: themeChoice || ""
+      theme: themeChoice || "",
+      font: fontProfile || ""
     });
     await this.app.vault.modify(file, rewritten);
   }
@@ -772,6 +792,7 @@ class PublicationOptionsModal extends Modal {
   private readonly initialProtected: boolean;
   private readonly initialExpiresAt: string;
   private readonly initialTheme: string;
+  private readonly initialFont: string;
   private readonly savedThemeChoice: string;
   private readonly customThemes: string[];
   private resolveValue!: (value: PublicationOptions | undefined) => void;
@@ -781,7 +802,7 @@ class PublicationOptionsModal extends Modal {
   private readonly sourceMarkdown?: string;
   private readonly sourcePath?: string;
 
-  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialDefaultTheme: ThemeChoice, initialProtected: boolean, initialExpiresAt: string, initialTheme: string = "", savedThemeChoice: string = "", customThemes: string[] = [], plugin?: ObsipubPlugin, sourceMarkdown?: string, sourcePath?: string) {
+  constructor(app: App, serverUrl: string, initialPrefix: string, initialShowLineNumbers: boolean, initialShowArticleLineNumbers: boolean, initialFullWidth: boolean, initialDefaultTheme: ThemeChoice, initialProtected: boolean, initialExpiresAt: string, initialTheme: string = "", savedThemeChoice: string = "", initialFont: string = "system", customThemes: string[] = [], plugin?: ObsipubPlugin, sourceMarkdown?: string, sourcePath?: string) {
     super(app);
     this.serverUrl = serverUrl;
     this.initialPrefix = initialPrefix;
@@ -793,6 +814,7 @@ class PublicationOptionsModal extends Modal {
     this.initialExpiresAt = initialExpiresAt;
     this.initialTheme = initialTheme;
     this.savedThemeChoice = savedThemeChoice;
+    this.initialFont = initialFont;
     this.customThemes = customThemes;
     this.plugin = plugin;
     this.sourceMarkdown = sourceMarkdown;
@@ -862,16 +884,28 @@ class PublicationOptionsModal extends Modal {
       .addDropdown((dropdown) => dropdown
         .addOption("classic", t("themeClassic"))
         .addOption("contrast", t("themeContrast"))
+        .addOption("nord", t("themeNord"))
         .addOptions(this.customThemes.reduce((o, t) => { o[t] = t; return o; }, {} as Record<string, string>))
         .setValue(themeDesign)
         .onChange((value) => { themeDesign = value; themeError.style.display = "none"; }));
-    const savedChoiceInvalid = this.savedThemeChoice && this.savedThemeChoice !== "classic" && this.savedThemeChoice !== "contrast" && !this.customThemes.includes(this.savedThemeChoice);
+    const savedChoiceInvalid = this.savedThemeChoice && this.savedThemeChoice !== "classic" && this.savedThemeChoice !== "contrast" && this.savedThemeChoice !== "nord" && !this.customThemes.includes(this.savedThemeChoice);
     const themeErrorText = savedChoiceInvalid ? `Saved theme choice "${this.savedThemeChoice}" is unavailable; Classic selected.` : "";
     const themeError = contentEl.createEl("small", { cls: "obsipub-modal-error", text: themeErrorText });
     themeError.style.color = savedChoiceInvalid ? "var(--text-error)" : "var(--text-muted)";
     themeError.style.fontSize = "0.85em";
     themeError.style.display = savedChoiceInvalid ? "block" : "none";
     themeDropdown.controlEl.insertAdjacentElement("afterend", themeError);
+
+    let fontProfile = this.initialFont || "system";
+    new Setting(contentEl)
+      .setName(t("fontProfileName"))
+      .setDesc(t("fontProfileDesc"))
+      .addDropdown((dropdown) => dropdown
+        .addOption("system", t("fontSystem"))
+        .addOption("serif", t("fontSerif"))
+        .addOption("mono", t("fontMono"))
+        .setValue(fontProfile)
+        .onChange((value) => { fontProfile = value; }));
 
     const previewBtnRow = contentEl.createDiv({ cls: "obsipub-preview-row" });
     previewBtnRow.style.marginTop = "0.25rem";
@@ -905,7 +939,8 @@ class PublicationOptionsModal extends Modal {
           defaultTheme,
           showLineNumbers,
           showArticleLineNumbers,
-          fullWidth
+          fullWidth,
+          fontProfile
         );
         window.open(url, "_blank");
         new Notice("Preview opened.");
@@ -1168,7 +1203,7 @@ class PublicationOptionsModal extends Modal {
         return;
       }
       this.settled = true;
-      const result: PublicationOptions = { prefix, password, showLineNumbers, showArticleLineNumbers, fullWidth, defaultTheme, resetProtection, theme: themeDesign };
+      const result: PublicationOptions = { prefix, password, showLineNumbers, showArticleLineNumbers, fullWidth, defaultTheme, resetProtection, theme: themeDesign, font: fontProfile };
       if (expiryMode === "relative" && ttlValue) result.ttl = ttlValue;
       if (expiryMode === "until" && untilValue) result.expiresAt = untilValue;
       this.resolveValue(result);
@@ -1222,89 +1257,135 @@ class ObsipubSettingTab extends PluginSettingTab {
         .onClick(async () => {
           await this.plugin.cleanFrontmatter();
         }));
-    const themeConverterRow = new Setting(containerEl)
-      .setName(t("themeConverterName"))
-      .setDesc(t("themeConverterDesc"));
-    let themeDropdown: HTMLSelectElement | null = null;
-    const dropdownComponent = themeConverterRow.addDropdown((dropdown) => {
-      dropdown.addOption("", t("themeConverterNoThemes"));
-      themeDropdown = dropdown.selectEl;
-      return dropdown.setValue("");
-    });
-    themeConverterRow.addButton((btn) => btn
-      .setButtonText(t("themeConverterBtn"))
-      .onClick(async () => {
-        if (!themeDropdown || !themeDropdown.value) {
-          new Notice(t("themeConverterNoThemes"));
+
+    // Tinted converter settings
+    const tintedSection = containerEl.createDiv({ cls: "obsipub-tinted-section" });
+    tintedSection.createEl("h3", { text: t("tintedConverterName"), cls: "obsipub-tinted-header" });
+    tintedSection.createEl("p", { text: t("tintedConverterDesc"), cls: "obsipub-tinted-desc" });
+
+    const outputDir = ".obsidian/obsipub/themes";
+    const adapter = this.plugin.app.vault.adapter;
+
+    const inputRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
+    let schemeInputValue = "";
+    const schemeInput = inputRow.createEl("input", { type: "text" }) as HTMLInputElement;
+    schemeInput.placeholder = "tinted8-nord or base16-default";
+    schemeInput.style.flex = "1 1 auto";
+    schemeInput.style.fontSize = "var(--font-ui-smaller)";
+    schemeInput.addEventListener("input", () => { schemeInputValue = schemeInput.value.trim(); });
+
+    const convertBtnRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
+    const convertBtn = convertBtnRow.createEl("button", { text: t("tintedConvertBtn"), cls: "mod-cta" });
+    convertBtn.addEventListener("click", async () => {
+      const rawId = schemeInputValue;
+      if (!rawId) {
+        new Notice(t("tintedNoScheme"));
+        return;
+      }
+      try {
+        const safeId = sanitizeSchemeId(rawId);
+        if (!safeId || safeId === "theme") {
+          new Notice(t("tintedInvalidId"));
           return;
         }
-        const selected = themeDropdown.value;
-        const adapter = this.plugin.app.vault.adapter;
-        const sourceDir = normalizePath(".obsidian/themes");
-        const sourcePath = normalizePath(`${sourceDir}/${selected}`);
-        try {
-          const cssContent = await adapter.read(sourcePath);
-          const imported = await inlineLocalImports(cssContent, selected, (relativePath) => adapter.read(normalizePath(`${sourceDir}/${relativePath}`)));
-          const resources = await inlineCssUrls(imported.css, async (resource) => {
-            if (/^https?:\/\//i.test(resource)) {
-              const response = await requestUrl({ url: resource });
-              const contentType = (response.headers["content-type"] || response.headers["Content-Type"])?.split(";", 1)[0] || resourceMimeType(resource);
-              return dataUrlFromBytes(response.arrayBuffer, contentType);
-            }
-            const relativeResource = resource.replace(/^\.\//, "");
-            const baseParts = selected.split("/");
-            baseParts.pop();
-            const parts = [...baseParts, ...relativeResource.split("/")];
-            const resolved: string[] = [];
-            for (const part of parts) {
-              if (!part || part === ".") continue;
-              if (part === "..") { resolved.pop(); continue; }
-              resolved.push(part);
-            }
-            const resourcePath = normalizePath(`${sourceDir}/${resolved.join("/")}`);
-            return dataUrlFromBytes(await adapter.readBinary(resourcePath), resourceMimeType(resourcePath));
-          });
-          const result = convert(resources.css);
-          result.warnings.unshift(...resources.warnings);
-          result.warnings.unshift(...imported.warnings);
-          for (const warning of result.warnings) {
-            console.warn("Theme converter:", warning);
-          }
-          const selectedTheme = (await this.plugin.discoverObsidianThemes()).find((theme) => theme.path === selected);
-          const basename = safeBasename(`${selectedTheme?.name || selected}.css`);
-          const destDir = normalizePath(".obsidian/obsipub/themes");
-          if (!(await adapter.exists(destDir))) {
-            await adapter.mkdir(destDir);
-          }
-          const destPath = normalizePath(`${destDir}/${basename}`);
-          await adapter.write(destPath, result.css);
-          new Notice(t("themeConverterSuccess").replace("{file}", basename));
-          if (result.warnings.length > 0) {
-            new Notice(t("themeConverterWarning").replace("{count}", String(result.warnings.length)));
-          }
-        } catch (e) {
-          console.error(t("themeConverterFailed"), e);
-          new Notice(`${t("themeConverterFailed")} — ${e instanceof Error ? e.message : String(e)}`);
+        const url = `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId.replace(/-/g, "/")}.yaml`;
+        // For IDs like tinted8-nord, split family/name
+        const familyMatch = safeId.match(/^(tinted8|base16)-(.*)$/);
+        const fetchUrl = familyMatch
+          ? `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${familyMatch[1]}/${familyMatch[2]}.yaml`
+          : `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId}.yaml`;
+        const response = await requestUrl({ url: fetchUrl, throw: false });
+        if (response.status >= 400) {
+          new Notice(t("tintedFetchFailed") + " (" + response.status + ")");
+          return;
         }
-      }));
-    // Populate dropdown with sorted theme file names asynchronously
-    void (async () => {
-      try {
-        const themes = await this.plugin.discoverObsidianThemes();
-        const dropdownEl = themeDropdown;
-        if (!dropdownEl) return;
-        dropdownEl.empty();
-        if (themes.length === 0) {
-          dropdownEl.createEl("option", { value: "", text: t("themeConverterNoThemes") });
-        } else {
-          for (const theme of themes) {
-            dropdownEl.createEl("option", { value: theme.path, text: theme.name });
-          }
+        const yamlText = response.text;
+        const parsed = parseTaintedYAML(yamlText);
+        const cssContent = generateThemeCSS(parsed);
+        const themeDirPath = outputDir + "/" + safeId;
+        const themeCssPath = themeDirPath + "/theme.css";
+        const manifestPath = themeDirPath + "/manifest.json";
+        if (!(await adapter.exists(outputDir))) {
+          await adapter.mkdir(outputDir);
         }
-      } catch {
-        // Ignore population errors
+        const themeDirExists = await adapter.exists(themeDirPath);
+        const parentExists = await adapter.exists(outputDir);
+        if (!themeDirExists && parentExists) {
+          // Create directory by writing a placeholder file then removing? Adapter.mkdir may support nested dirs.
+          await adapter.mkdir(themeDirPath);
+        }
+        await adapter.writeBinary(themeCssPath, new TextEncoder().encode(cssContent));
+        const manifestObj = {
+          name: parsed.name || safeId,
+          source: safeId,
+          entry: "theme.css"
+        };
+        await adapter.write(manifestPath, JSON.stringify(manifestObj, null, 2));
+        new Notice(t("tintedConverted").replace("{id}", safeId));
+        // Refresh theme discovery
+        await this.plugin.discoverCustomThemes();
+      } catch (e) {
+        console.error("Tinted convert error:", e);
+        new Notice(t("tintedConvertFailed") + " — " + (e instanceof Error ? e.message : String(e)));
       }
-    })();
+    });
+
+    const deleteBtnRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
+    const deleteBtn = deleteBtnRow.createEl("button", { text: t("tintedDeleteBtn"), cls: "mod-warning" });
+    deleteBtn.addEventListener("click", async () => {
+      try {
+        const themesDir = ".obsidian/obsipub/themes";
+        if (!(await adapter.exists(themesDir))) {
+          new Notice(t("tintedNoThemes"));
+          return;
+        }
+        const listing = await adapter.list(themesDir) as { files: string[]; folders: string[] };
+        const userThemes = listing.folders.filter((folder: string) => {
+          const folderName = folder.slice(folder.lastIndexOf("/") + 1);
+          return /^[^/\\\x00-\x1f]+$/.test(folderName);
+        });
+        if (userThemes.length === 0) {
+          new Notice(t("tintedNoThemes"));
+          return;
+        }
+        const deleteSelect = deleteBtnRow.createEl("select") as HTMLSelectElement;
+        deleteSelect.style.flex = "1 1 auto";
+        deleteSelect.style.fontSize = "var(--font-ui-smaller)";
+        for (const folderPath of userThemes.sort()) {
+          const name = folderPath.slice(folderPath.lastIndexOf("/") + 1);
+          deleteSelect.createEl("option", { value: name, text: name });
+        }
+        const confirmBtn = deleteBtnRow.createEl("button", { text: t("tintedConfirmDelete"), cls: "mod-warning" });
+        confirmBtn.addEventListener("click", async () => {
+          const selected = deleteSelect.value;
+          if (!selected) return;
+          const confirmMsg = isRussian()
+            ? `Удалить тему ${selected} и все её файлы? Это нельзя отменить.`
+            : `Delete theme ${selected} and all its files? This cannot be undone.`;
+          if (!confirm(confirmMsg)) return;
+          const themeDirPath = themesDir + "/" + selected;
+          // Recursively delete all nested files and folders safely.
+          const deleteRecursive = async (dirPath: string) => {
+            const listing = await adapter.list(dirPath) as { files: string[]; folders: string[] };
+            for (const filePath of listing.files || []) {
+              await adapter.remove(filePath);
+            }
+            for (const subFolder of listing.folders || []) {
+              await deleteRecursive(subFolder);
+              await adapter.rmdir(subFolder, false);
+            }
+          };
+          await deleteRecursive(themeDirPath);
+          await adapter.rmdir(themeDirPath, false);
+          new Notice(t("tintedDeleted").replace("{id}", selected));
+          deleteSelect.remove();
+          confirmBtn.remove();
+        });
+      } catch (e) {
+        console.error("Tinted delete error:", e);
+        new Notice("Delete failed — " + (e instanceof Error ? e.message : String(e)));
+      }
+    });
   }
 }
 

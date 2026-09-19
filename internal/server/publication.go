@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ type configResponse struct {
 	Index                  string        `json:"index,omitempty"`
 	Theme                  string        `json:"theme,omitempty"`
 	DefaultTheme           string        `json:"defaultTheme"`
+	Font                   string        `json:"font,omitempty"`
 	ShowLineNumbers        bool          `json:"showLineNumbers"`
 	ShowArticleLineNumbers bool          `json:"showArticleLineNumbers"`
 	FullWidth              bool          `json:"fullWidth"`
@@ -56,7 +58,7 @@ func (p *publication) config(c fiber.Ctx) error {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "not published"})
 	}
 	tree := manifest.Tree
-	return c.JSON(configResponse{Ready: true, Index: manifest.Index, Theme: manifest.Theme, DefaultTheme: publish.NormalizeThemeMode(manifest.DefaultTheme), ShowLineNumbers: manifest.ShowLineNumbers, ShowArticleLineNumbers: manifest.ShowArticleLineNumbers, FullWidth: manifest.FullWidth, Tree: &tree})
+	return c.JSON(configResponse{Ready: true, Index: manifest.Index, Theme: manifest.Theme, DefaultTheme: publish.NormalizeThemeMode(manifest.DefaultTheme), Font: manifest.Font, ShowLineNumbers: manifest.ShowLineNumbers, ShowArticleLineNumbers: manifest.ShowArticleLineNumbers, FullWidth: manifest.FullWidth, Tree: &tree})
 }
 
 func (p *publication) markdown(c fiber.Ctx) error {
@@ -120,17 +122,62 @@ func (p *publication) raw(c fiber.Ctx) error {
 
 func (p *publication) theme(c fiber.Ctx) error {
 	manifest, ready := p.state()
+	pathParam := strings.TrimPrefix(strings.TrimSpace(c.Params("*")), "/")
+
+	serveThemeFile := func(filePath string) error {
+		full, err := p.store.Resolve(filePath)
+		if err != nil {
+			return c.Status(http.StatusNotFound).SendString("theme file not found")
+		}
+		info, err := os.Stat(full)
+		if err != nil || info.IsDir() {
+			return c.Status(http.StatusNotFound).SendString("theme file not found")
+		}
+		ext := filepath.Ext(full)
+		contentType := mime.TypeByExtension(ext)
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		contentType = strings.Split(contentType, ";")[0]
+		c.Set(fiber.HeaderContentType, contentType)
+		return c.SendFile(full)
+	}
+
+	if pathParam != "" {
+		switch pathParam {
+		case "classic", "classic/theme.css":
+			c.Type("css", "utf-8")
+			return c.Send(themes.ClassicCSS)
+		case "contrast", "contrast/theme.css":
+			c.Type("css", "utf-8")
+			return c.Send(themes.ContrastCSS)
+		case "nord", "nord/theme.css":
+			c.Type("css", "utf-8")
+			return c.Send(themes.NordCSS)
+		}
+		cleanPath := filepath.ToSlash(filepath.Clean(filepath.FromSlash(pathParam)))
+		if filepath.IsAbs(cleanPath) || strings.HasPrefix(cleanPath, "..") || strings.Contains(cleanPath, "..") {
+			c.Type("css", "utf-8")
+			return c.SendString(baseTheme)
+		}
+		archivePath := ".themes/obsipub/" + cleanPath
+		return serveThemeFile(archivePath)
+	}
+
 	if !ready || manifest.Theme == "" {
 		c.Type("css", "utf-8")
 		return c.SendString(baseTheme)
 	}
-	if manifest.Theme == "classic" {
+	switch manifest.Theme {
+	case "classic":
 		c.Type("css", "utf-8")
-		return c.SendString(string(themes.ClassicCSS))
-	}
-	if manifest.Theme == "contrast" {
+		return c.Send(themes.ClassicCSS)
+	case "contrast":
 		c.Type("css", "utf-8")
-		return c.SendString(string(themes.ContrastCSS))
+		return c.Send(themes.ContrastCSS)
+	case "nord":
+		c.Type("css", "utf-8")
+		return c.Send(themes.NordCSS)
 	}
 	full, err := p.store.RawPath(manifest.Theme)
 	if err != nil {

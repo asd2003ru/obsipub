@@ -6,11 +6,16 @@ This doc describes creating custom themes for ObsiPub publications.
 
 ### Where to place
 
-Place the `.css` file in the vault (top-level directory only):
+User themes live under `.obsidian/obsipub/themes/<theme-id>/` as a directory. The entry CSS must be named `theme.css`. An optional `manifest.json` can provide a display name and entry file reference.
+
 ```
-<vault>/.obsidian/obsipub/themes/my.css
+<vault>/.obsidian/obsipub/themes/nord/
+  theme.css
+  manifest.json (optional)
+  assets/ (optional relative assets)
 ```
-The file is selected in the publish dialog and packaged as `.themes/obsipub/my.css`.
+
+The theme is selected in the publish dialog and packaged as `.themes/obsipub/<theme-id>/`. The manifest `theme` points to the nested entry CSS (`.themes/obsipub/<theme-id>/theme.css`). Relative assets in CSS work through the virtual endpoint `/api/theme/<theme-id>/` (for example, `url('assets/image.png')` resolves to `/api/theme/<theme-id>/assets/image.png`).
 
 ### Selectors
 
@@ -30,23 +35,21 @@ body.theme-dark  { --accent: #6b8cce; }
 - `--link-color`
 - `--callout-color-note`, `--callout-color-tip`, `--callout-color-warning`, `--callout-color-danger`, `--callout-color-question`, `--callout-color-quote`
 
+### Built-in themes
+
+In addition to **Classic** and **Contrast**, a **Nord** built-in theme is available. It uses the Base16 Nord palette with light (`body.theme-light`) and dark (`body.theme-dark`) modes and includes semantic variables and callout colors. Select it from the publication theme dropdown.
+
+### Tinted converter
+
+In plugin settings (**Tinted converter**), enter a scheme ID such as `tinted8-nord` or `base16-default`, then click **Convert**. The plugin fetches the YAML from `tinted-theming/schemes` (via GitHub raw source), validates and sanitizes the ID, parses the YAML safely, and writes `.obsidian/obsipub/themes/<safe-id>/theme.css` plus a small `manifest.json`. Both `body.theme-light` and `body.theme-dark` are generated sensibly from the palette. The selected folder theme can be deleted with the **Delete selected/user theme** button (confirmation required; only user theme directories are removed, never built-ins).
+
+### Font profiles
+
+The publication manifest supports an optional `font` field (`system`, `serif`, `mono`). Profile is selected in the plugin publish dialog and applied by the web UI via safe system font stacks. Existing archives without `font` remain fully compatible.
+
 ### Restrictions
 
-Published theme CSS must be self-contained. The plugin converter inlines local CSS imports and loads local or HTTP(S) `url()` resources into data URLs; inaccessible external resources are skipped.
-
-Arbitrary selector/layout/asset conversion is not supported.
-
-### Quick color conversion
-
-In the ObsiPub plugin settings, choose a theme from `.obsidian/themes` in **Convert Obsidian theme**, then click **Convert to ObsiPub theme**. Community themes in nested folders are shown by the name from their `manifest.json`. The converted file is written to `.obsidian/obsipub/themes/` and an existing file with the same name is overwritten.
-
-For batch or command-line use, run from the repository root:
-
-```bash
-node tools/convert-obsidian-theme.mjs /path/to/obsidian/theme.css /path/to/vault/.obsidian/obsipub/themes/my.css
-```
-
-Only literal color tokens are mapped; review both modes and visual contrast manually. Local CSS imports and local/HTTP(S) `url()` resources are inlined as data URLs; inaccessible resources are skipped. Variables `var(...)`, arbitrary selectors, layout and fonts require manual refinement. The plugin overwrites the same-name output; the command-line tool refuses to overwrite an existing output. If colors for one mode are missing in the source, add them manually. After conversion, check contrast and preview.
+Published theme CSS must not use external `@import` or absolute `url()` resources. Relative `url()` paths are resolved from the packaged theme folder. Arbitrary selectors, layout, fonts, and non-color variables require manual refinement.
 
 ### Preview and publish
 
@@ -103,11 +106,16 @@ body.theme-dark {
 
 ### Где размещать
 
-Положите файл `.css` в папку vault (только верхний уровень каталога):
+Пользовательские темы размещаются как папки в `.obsidian/obsipub/themes/<theme-id>/`. Входной CSS должен называться `theme.css`. Необязательный `manifest.json` может содержать имя и ссылку на вход.
+
 ```
-<vault>/.obsidian/obsipub/themes/my.css
+<vault>/.obsidian/obsipub/themes/nord/
+  theme.css
+  manifest.json (необязательно)
+  assets/ (необязательные относительные ресурсы)
 ```
-Файл выбирается в диалоге публикации и включается в архив как `.themes/obsipub/my.css`.
+
+Тема выбирается в диалоге публикации и включается в архив как `.themes/obsipub/<theme-id>/`. Манифест `theme` указывает на вложенный CSS (`.themes/obsipub/<theme-id>/theme.css`). Относительные ресурсы CSS работают через виртуальный эндпоинт `/api/theme/<theme-id>/` (например, `url('assets/icon.svg')` разрешается в `/api/theme/<theme-id>/assets/icon.svg`).
 
 ### Селекторы
 
@@ -127,23 +135,21 @@ body.theme-dark  { --accent: #6b8cce; }
 - `--link-color`
 - `--callout-color-note`, `--callout-color-tip`, `--callout-color-warning`, `--callout-color-danger`, `--callout-color-question`, `--callout-color-quote`
 
+### Встроенные темы
+
+Помимо **Классической** и **Контрастной**, доступна встроенная тема **Nord**. Она использует палитру Base16 Nord с режимами light (`body.theme-light`) и dark (`body.theme-dark`) и включает семантические переменные и цвета callout. Выберите её в выпадающем списке темы публикации.
+
+### Конвертер Tinted
+
+В настройках плагина (**Tinted converter**) введите ID схемы, например `tinted8-nord` или `base16-default`, затем нажмите **Convert**. Плагин загружает YAML из репозитория `tinted-theming/schemes` через GitHub raw, проверяет и очищает ID, безопасно парсит YAML и записывает `.obsidian/obsipub/themes/<safe-id>/theme.css` вместе с `manifest.json`. Генерируются оба режима (`body.theme-light` и `body.theme-dark`). Удаление выбранной пользовательской темы выполняется кнопкой **Delete selected/user theme** (требуется подтверждение; удаляются только папки тем пользователя, никогда встроенные).
+
+### Профили шрифтов
+
+Манифест публикации поддерживает необязательное поле `font` (`system`, `serif`, `mono`). Профиль выбирается в диалоге публикации плагина и применяется веб-интерфейсом через безопасные системные стеки шрифтов. Существующие архивы без `font` остаются полностью совместимыми.
+
 ### Ограничения
 
-Тема должна быть самодостаточной. Конвертер плагина встраивает локальные CSS-импорты и загружает локальные или HTTP(S) ресурсы из `url()` в data URL; недоступные ресурсы пропускаются.
-
-Произвольная конвертация селекторов, макетов или ассетов не поддерживается.
-
-### Быстрый перенос цветов из темы Obsidian
-
-В настройках плагина ObsiPub выберите тему из `.obsidian/themes` в поле **Конвертировать тему Obsidian**, затем нажмите **Конвертировать в тему ObsiPub**. Темы во вложенных каталогах отображаются по имени из их `manifest.json`. Результат записывается в `.obsidian/obsipub/themes/`; одноимённый файл перезаписывается.
-
-Для пакетной или командной конвертации из корня репозитория запустите:
-
-```bash
-node tools/convert-obsidian-theme.mjs /path/to/obsidian/theme.css /path/to/vault/.obsidian/obsipub/themes/my.css
-```
-
-Конвертер переносит **только буквальные цвета** из `body.theme-light` / `body.theme-dark` (также `.theme-light` / `.theme-dark`) для базовых переменных Obsidian: фон, текст, границы, акцент, ошибка и код. Локальные CSS-импорты и локальные/HTTP(S) ресурсы из `url()` встраиваются как data URL; недоступные ресурсы пропускаются. Переменные `var(...)`, произвольные селекторы, раскладка и шрифты требуют ручной доработки. Конвертер в плагине перезаписывает одноимённый файл; командный инструмент не перезаписывает существующий выходной файл. Если в исходнике нет цветов одного из режимов, дополните его вручную. После конвертации проверьте контраст и предпросмотр.
+Тема должна быть самодостаточной: внешние `@import` не поддерживаются. Ресурсы `url()` могут быть относительными (например, `assets/icon.svg`) и обслуживаются через виртуальный эндпоинт `/api/theme/<theme-id>/`. Произвольные селекторы, макеты, шрифты и непеременные цвета требуют ручной доработки.
 
 ### Предпросмотр и публикация
 

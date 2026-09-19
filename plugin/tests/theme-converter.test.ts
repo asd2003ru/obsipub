@@ -111,6 +111,61 @@ palette:
   assert.ok(css.includes("--syntax-punctuation:"));
 });
 
+test("Base16 with yellow base03 emits neutral color-mix for muted and border", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "YellowBase"
+  system: "base16"
+palette:
+  base00: "#1a1a1a"
+  base03: "#ecba0f"
+  base05: "#eeeeee"
+  base0A: "#ffcc00"
+`);
+  const css = generateThemeCSS(parsed);
+  // When no explicit semantic UI muted/border is given, it must NOT emit the yellow base03.
+  assert.ok(!css.includes("--muted: #ecba0f"), "muted should not be yellow base03");
+  assert.ok(!css.includes("--border: #ecba0f"), "border should not be yellow base03");
+  assert.ok(!css.includes("--obs-muted: #ecba0f"), "obs-muted should not be yellow base03");
+  assert.ok(!css.includes("--obs-border: #ecba0f"), "obs-border should not be yellow base03");
+  // It should emit neutral color-mix derived from foreground/background instead.
+  assert.ok(css.includes("color-mix"), "should use color-mix for muted/border");
+  assert.ok(css.includes("--muted: color-mix"), "--muted should be a color-mix value");
+  assert.ok(css.includes("--border: color-mix"), "--border should be a color-mix value");
+});
+
+test("explicit semantic UI muted/border values are preserved", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "ExplicitUI"
+  system: "tinted8"
+ui:
+  chrome.background.dark: "#0a0a0a"
+  chrome.foreground.dark: "#f0f0f0"
+  foreground.dim.dark: "#777777"
+  chrome.border.dark: "#333333"
+`);
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--muted: #777777"), "explicit muted should be preserved");
+  assert.ok(css.includes("--border: #333333"), "explicit border should be preserved");
+  assert.ok(css.includes("--obs-muted: #777777"), "explicit obs-muted should be preserved");
+  assert.ok(css.includes("--obs-border: #333333"), "explicit obs-border should be preserved");
+  // Should NOT fall back to color-mix when explicitly provided.
+  assert.ok(!css.includes("--muted: color-mix"), "explicit muted should not become color-mix");
+  assert.ok(!css.includes("--border: color-mix"), "explicit border should not become color-mix");
+});
+
+test("syntax comment can still use base03 from palette", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "CommentTest"
+  system: "base16"
+palette:
+  base00: "#111111"
+  base03: "#ecba0f"
+  base05: "#eeeeee"
+`);
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--syntax-comment: #ecba0f"), "syntax comment should use base03 color");
+});
+
 test("sanitizeSchemeId prevents traversal", () => {
   assert.equal(sanitizeSchemeId("tinted8-nord"), "tinted8-nord");
   assert.equal(sanitizeSchemeId("bad/name"), "bad-name");

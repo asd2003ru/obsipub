@@ -159,8 +159,12 @@ export function generateThemeCSS(parsed: any): string {
     const panel = mode === "light"
       ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor(palette, "black") || background
       : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor(palette, "black") || background;
-    const muted = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal") || paletteColor(palette, "gray");
-    const border = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background") || paletteColor(palette, "gray");
+    const mutedExplicit = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal");
+    const mutedFallback = (foreground && background) ? `color-mix(in srgb, ${foreground} 62%, ${background})` : undefined;
+    const muted = mutedExplicit || mutedFallback;
+    const borderExplicit = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background");
+    const borderFallback = (foreground && background) ? `color-mix(in srgb, ${foreground} 20%, ${background})` : undefined;
+    const border = borderExplicit || borderFallback;
     const accent = uiColor(mode === "light" ? "accent.light" : "accent.dark", "accent.normal", "highlight.text.foreground") || paletteColor(palette, "blue") || paletteColor(palette, "cyan");
     const selection = uiColor("selection.background", "highlight.background") || paletteColor(palette, "gray_dark") || paletteColor(palette, "blue");
     const danger = uiColor("error.foreground", "danger.foreground") || paletteColor(palette, "red") || "#dc2626";

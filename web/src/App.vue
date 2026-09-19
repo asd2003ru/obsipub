@@ -616,14 +616,17 @@ async function onContentClick(event) {
     const code = Array.from(lines, (line) => line.textContent).join('\n')
     try {
       await navigator.clipboard.writeText(code)
-      copyButton.textContent = t('copied')
+      copyButton.setAttribute('aria-label', t('copied'))
+      copyButton.setAttribute('title', t('copied'))
       copyButton.classList.add('copied')
       window.setTimeout(() => {
-        copyButton.textContent = t('copy')
+        copyButton.setAttribute('aria-label', t('copy'))
+        copyButton.setAttribute('title', t('copy'))
         copyButton.classList.remove('copied')
       }, 1400)
     } catch {
-      copyButton.textContent = t('operationError')
+      copyButton.setAttribute('aria-label', t('operationError'))
+      copyButton.setAttribute('title', t('operationError'))
     }
     return
   }

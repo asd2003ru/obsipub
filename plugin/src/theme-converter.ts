@@ -149,13 +149,13 @@ export function generateThemeCSS(parsed: any): string {
       return fallback;
     };
     const background = mode === "light"
-      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("white") || paletteColor("black")
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("black") || paletteColor("white")
       : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || paletteColor("white");
     const foreground = mode === "light"
       ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor("black") || paletteColor("white")
       : uiColor("chrome.foreground.dark", "foreground.dark", "foreground.normal", "highlight.text.foreground") || paletteColor("white") || paletteColor("black");
     const panel = mode === "light"
-      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("white") || background
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("black") || background
       : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || background;
     const muted = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal") || paletteColor("gray");
     const border = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background") || paletteColor("gray");

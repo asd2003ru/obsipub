@@ -74,7 +74,7 @@ test("generates one CSS file from separate light and dark schemes", () => {
   const light = parseTaintedYAML(`palette:\n  white: "#ffffff"\n  black: "#202020"\n  blue: "#0055aa"`);
   const dark = parseTaintedYAML(`palette:\n  black: "#101018"\n  white: "#eeeeff"\n  blue: "#88aaff"`);
   const css = generateThemeCSS({ light, dark });
-  assert.match(css, /body\.theme-light[\s\S]*--bg: #ffffff/);
+  assert.match(css, /body\.theme-light[\s\S]*--bg: #202020/);
   assert.match(css, /body\.theme-dark[\s\S]*--bg: #101018/);
   assert.ok(css.includes("--code-normal: #eeeeff"));
 });

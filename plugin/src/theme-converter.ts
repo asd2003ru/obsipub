@@ -22,6 +22,34 @@ function isSafeColorValue(value: string): boolean {
   return /^#[0-9a-f]{3,8}$/i.test(value) || /^rgb\([^)]+\)$/i.test(value) || /^rgba\([^)]+\)$/i.test(value) || /^(?:transparent|black|white)$/i.test(value);
 }
 
+function stripCommentOutsideQuotes(str: string): string {
+  let inSingle = false;
+  let inDouble = false;
+  let result = "";
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      result += ch;
+    } else if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      result += ch;
+    } else if (ch === '#' && !inSingle && !inDouble) {
+      const rest = str.slice(i + 1);
+      // If the rest starts with hex digits, treat as a hex color value, not a comment.
+      if (rest.match(/^[0-9a-fA-F]{3,8}(?=[^0-9a-fA-F]|$)/)) {
+        result += ch;
+        // The loop will append the hex chars naturally.
+      } else {
+        break;
+      }
+    } else {
+      result += ch;
+    }
+  }
+  return result.trim();
+}
+
 function normalizeColor(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const color = value.trim().replace(/^['"]|['"]$/g, "");
@@ -34,11 +62,11 @@ const syntaxSpecificity: Record<string, string[]> = {
   "syntax-string": ["string.interpolated", "string.template", "string.regexp", "string.quoted", "string.unquoted", "string"],
   "syntax-number": ["constant.numeric.integer", "constant.numeric.float", "constant.numeric", "number", "constant.language", "constant"],
   "syntax-keyword": ["keyword.control", "storage.type", "storage.modifier", "storage", "keyword"],
-  "syntax-function": ["entity.name.function", "entity.name.method", "support.function", "function", "method"],
+  "syntax-function": ["meta.function", "entity.name.function", "entity.name.method", "support.function", "function", "method"],
   "syntax-type": ["entity.name.interface", "entity.name.class", "entity.name.type", "support.type", "interface", "class", "type"],
   "syntax-property": ["entity.name.property", "entity.name.variable", "variable.other", "variable.parameter", "variable.language", "property", "variable", "entity.name.tag", "tag"],
   "syntax-operator": ["keyword.operator.logical", "keyword.operator.comparison", "keyword.operator.arithmetic", "keyword.operator.bitwise", "keyword.operator", "operator"],
-  "syntax-punctuation": ["punctuation.definition", "punctuation.separator", "punctuation.terminator", "punctuation.section", "meta.brace", "punctuation"],
+  "syntax-punctuation": ["punctuation.brackets", "punctuation.brackets.angle", "punctuation.definition", "punctuation.separator", "punctuation.terminator", "punctuation.section", "meta.brace", "punctuation"],
 };
 
 function syntaxValue(normalizedSyntax: Record<string, string>, role: string): string | undefined {
@@ -97,13 +125,14 @@ export function parseTaintedYAML(content: string): {
   syntax?: Record<string, string>;
   ui?: Record<string, string>;
 } {
-  const result: any = { palette: {}, syntax: {}, ui: {} };
+  const result: any = { palette: {}, syntax: {}, ui: {}, scheme: {} };
   const lines = content.split("\n");
   let currentSection: string | null = null;
   let currentSubKey: string | null = null;
 
   for (const line of lines) {
     const trimmed = line.trim();
+    const indent = line.length - line.trimStart().length;
     if (!trimmed || trimmed.startsWith("#")) continue;
 
     if (trimmed === "scheme:") {
@@ -138,13 +167,20 @@ export function parseTaintedYAML(content: string): {
     const colonIndex = trimmed.indexOf(":");
     if (colonIndex > 0) {
       const key = trimmed.slice(0, colonIndex).trim();
-      let value = trimmed.slice(colonIndex + 1).trim();
+      let rawValue = trimmed.slice(colonIndex + 1).trim();
+      rawValue = stripCommentOutsideQuotes(rawValue);
+      let value = rawValue;
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
+      if (indent === 0 && ["system", "name", "variant", "author"].includes(key.toLowerCase())) {
+        result.scheme[key.toLowerCase()] = value;
+        currentSubKey = null;
+        continue;
+      }
       const legacyNames: Record<string, string> = {
         base00: "black", base01: "black_dim", base02: "gray_dark", base03: "gray",
-        base04: "gray_light", base05: "white", base06: "white_bright", base07: "white",
+        base04: "gray_light", base05: "white", base06: "white_bright", base07: "white_brightest",
         base08: "red", base09: "orange", base0a: "yellow", base0b: "green",
         base0c: "cyan", base0d: "blue", base0e: "magenta", base0f: "brown",
         base10: "base10", base11: "base11", base12: "base12", base13: "base13",
@@ -153,14 +189,23 @@ export function parseTaintedYAML(content: string): {
       if (legacyNames[key.toLowerCase()]) {
         result.palette[legacyNames[key.toLowerCase()]] = value;
       } else if (currentSection === "scheme") {
-        if (currentSubKey && value === "") {
+        if (indent <= 2) {
+          result.scheme[key] = value;
+          currentSubKey = null;
+        } else if (currentSubKey && value === "") {
           // nested object start handled above
           continue;
         }
-        if (currentSubKey && result.scheme[currentSubKey] && typeof result.scheme[currentSubKey] === "object") {
+        const metaKeys = ["system", "name", "variant", "author"];
+        if (currentSubKey && metaKeys.includes(key.toLowerCase()) && value !== "") {
+          // A top-level metadata key after a nested sub-section should be reset to scheme level
+          result.scheme[key.toLowerCase()] = value;
+          currentSubKey = null;
+        } else if (currentSubKey && result.scheme[currentSubKey] && typeof result.scheme[currentSubKey] === "object") {
           result.scheme[currentSubKey][key] = value;
         } else {
           result.scheme[key] = value;
+          if (!currentSubKey) currentSubKey = null;
         }
       } else if (currentSection === "palette") {
         result.palette[key] = value;
@@ -168,6 +213,14 @@ export function parseTaintedYAML(content: string): {
         result.syntax[key] = value;
       } else if (currentSection === "ui") {
         result.ui[key] = value;
+      } else {
+        // Top-level loose keys (Base16/Base24 metadata or palette values)
+        const metaKeys = ["system", "name", "variant", "author"];
+        if (metaKeys.includes(key.toLowerCase())) {
+          result.scheme[key.toLowerCase()] = value;
+        } else {
+          result.palette[key] = value;
+        }
       }
     }
   }
@@ -186,6 +239,7 @@ export function generateThemeCSS(parsed: any): string {
   const buildValues = (source: any, mode: "light" | "dark") => {
     const palette = source?.palette || {};
     const ui = source?.ui || {};
+    const system = String(source?.system || "").toLowerCase();
 
   // Tinted8 defines the semantic UI colors separately from its terminal palette.
   // Prefer these values when present (for example chrome.background.dark and
@@ -198,13 +252,13 @@ export function generateThemeCSS(parsed: any): string {
       return undefined;
     };
     const background = mode === "light"
-      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor(palette, "black") || paletteColor(palette, "white")
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || (system === "tinted8" ? paletteColor(palette, "white") : paletteColor(palette, "black")) || paletteColor(palette, "white") || paletteColor(palette, "black")
       : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor(palette, "black") || paletteColor(palette, "white");
     const foreground = mode === "light"
-      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor(palette, "white") || paletteColor(palette, "black")
+      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || (system === "tinted8" ? paletteColor(palette, "black") : paletteColor(palette, "white")) || paletteColor(palette, "black") || paletteColor(palette, "white")
       : uiColor("chrome.foreground.dark", "foreground.dark", "foreground.normal", "highlight.text.foreground") || paletteColor(palette, "white") || paletteColor(palette, "black");
     const panel = mode === "light"
-      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor(palette, "black") || background
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || (system === "tinted8" ? paletteColor(palette, "white") : paletteColor(palette, "black")) || background
       : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor(palette, "black") || background;
     const mutedExplicit = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal");
     const mutedFallback = (foreground && background) ? `color-mix(in srgb, ${foreground} 62%, ${background})` : undefined;
@@ -227,7 +281,7 @@ export function generateThemeCSS(parsed: any): string {
     }
     const syntax = syntaxNormalized;
     const heading = uiColor("heading.foreground") || paletteColor(palette, "blue") || foreground;
-    return { palette, syntax, system: String(source?.system || "").toLowerCase(), background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading };
+    return { palette, syntax, system, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading };
   };
   const lightValues = buildValues(parsed?.light || parsed, "light");
   const darkValues = buildValues(parsed?.dark || parsed, "dark");

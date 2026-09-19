@@ -275,3 +275,179 @@ palette:
   // Property uses standard red when bright base12 missing
   assert.ok(css.includes("--syntax-property: #ff5555"), "property should fall back to base08 when bright base12 missing");
 });
+
+test("parses official Base16 metadata and inline palette comments", () => {
+  const parsed = parseTaintedYAML(`system: "base16"
+name: "Catppuccin Latte"
+variant: "light"
+palette:
+  base00: "#eff1f5" # base
+  base05: "#4c4f69" # text
+  base07: "#7287fd" # lavender
+  base0B: "#40a02b" # green
+`);
+  assert.equal(parsed.system, "base16");
+  assert.equal(parsed.name, "Catppuccin Latte");
+  assert.equal(parsed.variant, "light");
+  assert.equal(parsed.palette?.black, "#eff1f5");
+  assert.equal(parsed.palette?.white, "#4c4f69");
+  assert.equal(parsed.palette?.white_brightest, "#7287fd");
+  assert.equal(parsed.palette?.green, "#40a02b");
+  const css = generateThemeCSS(parsed);
+  assert.match(css, /body\.theme-light[\s\S]*--bg: #eff1f5[\s\S]*--text: #4c4f69/);
+  assert.ok(css.includes("--syntax-string: #40a02b"));
+});
+
+test("parses official Base24 metadata, bright colors, and inline comments", () => {
+  const parsed = parseTaintedYAML(`system: "base24"
+name: "Catppuccin Latte"
+variant: "light"
+palette:
+  base00: "#eff1f5" # base
+  base05: "#4c4f69" # text
+  base0B: "#40a02b" # green
+  base14: "#40a02b" # bright green
+  base16: "#209fb5" # bright blue
+`);
+  assert.equal(parsed.system, "base24");
+  assert.equal(parsed.palette?.base14, "#40a02b");
+  assert.equal(parsed.palette?.base16, "#209fb5");
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--syntax-string: #40a02b"));
+  assert.ok(css.includes("--syntax-function: #209fb5"));
+});
+
+test("parses official Tinted8 inline comments and syntax scopes", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  system: "tinted8"
+  supports:
+    styling-spec: "0.2.0"
+  name: "Catppuccin Latte"
+variant: "light"
+palette:
+  black: "#4c4f69" # crust
+  white: "#dce0e8" # text
+  green: "#40a02b" # green
+  blue: "#1e66f5" # blue
+syntax:
+  meta.function: "#1e66f5"
+  punctuation.brackets.angle: "#179299"
+  punctuation.brackets: "#e64553" # maroon
+`);
+  assert.equal(parsed.system, "tinted8");
+  assert.equal(parsed.name, "Catppuccin Latte");
+  assert.equal(parsed.variant, "light");
+  assert.equal(parsed.palette?.black, "#4c4f69");
+  assert.equal(parsed.palette?.green, "#40a02b");
+  assert.equal(parsed.syntax?.["punctuation.brackets"], "#e64553");
+  const css = generateThemeCSS(parsed);
+  assert.match(css, /body\.theme-light[\s\S]*--bg: #dce0e8[\s\S]*--text: #4c4f69/);
+  assert.ok(css.includes("--syntax-string: #40a02b"));
+  assert.ok(css.includes("--syntax-function: #1e66f5"));
+  assert.ok(css.includes("--syntax-punctuation: #e64553"));
+});
+
+test("Base16 top-level metadata and inline comments are stripped correctly", () => {
+  const yaml = `system: "base16"
+name: "Catppuccin Latte"
+author: "catppuccin"
+variant: "light"
+base00: "#eff1f5" # base
+base05: "#4c4f69" # text
+base08: "#d20f39" # red
+base0B: "#40a02b" # green
+base0D: "#8839ef" # blue
+`;
+  const parsed = parseTaintedYAML(yaml);
+  assert.equal(parsed.system, "base16");
+  assert.equal(parsed.name, "Catppuccin Latte");
+  assert.equal(parsed.variant, "light");
+  assert.equal(parsed.palette?.black, "#eff1f5"); // legacy mapping base00 -> black
+  assert.equal(parsed.palette?.white, "#4c4f69"); // base05 -> white (legacy mapping)
+  assert.equal(parsed.palette?.red, "#d20f39");
+  assert.equal(parsed.palette?.green, "#40a02b");
+  assert.equal(parsed.palette?.blue, "#8839ef");
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--bg: #eff1f5"), "Base16 palette color preserved after stripping inline comment");
+  assert.ok(css.includes("body.theme-light"), "Base16 generates CSS modes");
+});
+
+test("Base24 top-level metadata and inline comments are stripped correctly", () => {
+  const yaml = `system: "base24"
+name: "Catppuccin Latte"
+variant: "dark"
+base00: "#eff1f5" # base
+base05: "#4c4f69" # text
+base08: "#d20f39" # red
+base09: "#df8e1d" # yellow
+base0B: "#40a02b" # green
+base0C: "#179299" # cyan
+base0D: "#8839ef" # blue
+base0E: "#aa4a96" # magenta
+base10: "#dc8a78" # bright red
+base11: "#eebd89" # bright yellow
+base12: "#907aa9" # bright magenta-ish
+base13: "#89dceb" # bright cyan
+base14: "#a6e3a1" # bright green
+base15: "#cba6f7" # bright blue
+base16: "#89b4fa" # bright blue (alternate)
+base17: "#f38ba8" # bright red (alternate)
+`;
+  const parsed = parseTaintedYAML(yaml);
+  assert.equal(parsed.system, "base24");
+  assert.equal(parsed.name, "Catppuccin Latte");
+  assert.equal(parsed.variant, "dark");
+  assert.equal(parsed.palette?.base10, "#dc8a78");
+  assert.equal(parsed.palette?.base17, "#f38ba8");
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--syntax-function: #89b4fa"), "Base24 bright base16 preferred for function");
+  assert.ok(css.includes("--syntax-keyword: #f38ba8"), "Base24 bright base17 preferred for keyword");
+  assert.ok(css.includes("--syntax-string: #a6e3a1"), "Base24 bright base14 preferred for string");
+  assert.ok(css.includes("--syntax-property: #907aa9"), "Base24 bright base12 preferred for property");
+});
+
+test("Tinted8 nested scheme with inline comments and syntax mapping", () => {
+  const yaml = `scheme:
+  system: "tinted8"
+  name: "Catppuccin Latte"
+  variant: "light"
+palette:
+  black: "#4c4f69" # crust
+  white: "#eff1f5" # base
+  blue: "#8839ef" # lavender
+  green: "#40a02b" # green
+syntax:
+  meta.function: "#1e66f5"
+  comment: "#6c6f85"
+  string: "#40a02b"
+  keyword: "#8839ef"
+  punctuation.brackets: "#6c6f85"
+  punctuation.brackets.angle: "#d20f39"
+  punctuation: "#e6eaf0"
+  function: "#005cc5"
+`;
+  const parsed = parseTaintedYAML(yaml);
+  assert.equal(parsed.system, "tinted8");
+  assert.equal(parsed.name, "Catppuccin Latte");
+  assert.equal(parsed.palette?.black, "#4c4f69");
+  assert.equal(parsed.syntax?.["meta.function"], "#1e66f5");
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--syntax-function: #1e66f5"), "meta.function mapped to function and preferred over generic function");
+  assert.ok(css.includes("--syntax-punctuation: #6c6f85"), "punctuation.brackets preferred over generic punctuation");
+  assert.ok(css.includes("body.theme-light"), "Tinted8 generates CSS modes");
+});
+
+test("unquoted hex palette colors with leading hash are preserved (no false comment stripping)", () => {
+  const yaml = `scheme:
+  name: "UnquotedHex"
+  system: "base16"
+palette:
+  black: #181818
+  white: #eeeeee
+`;
+  const parsed = parseTaintedYAML(yaml);
+  assert.equal(parsed.palette?.black, "#181818");
+  assert.equal(parsed.palette?.white, "#eeeeee");
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--bg: #181818"), "unquoted hex value preserved");
+});

@@ -1995,12 +1995,13 @@ body.theme-light {
   --callout-color-question: var(--obs-callout-color-question, var(--color-purple-text, var(--color-pink-text, #7c3aed)));
   --callout-color-quote: var(--obs-callout-color-quote, var(--color-grey-text, var(--text-muted, #7c3aed)));
   --callout-color: var(--callout-color-note);
+  --callout-foreground: var(--callout-color);
   margin: 1em 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--callout-color) 36%, var(--border));
   border-radius: var(--callout-radius, var(--radius-m, 9px));
   border-inline-start-width: 5px;
-  border-inline-start-color: var(--callout-color);
+  border-inline-start-color: var(--callout-foreground);
   padding: 0;
   background: color-mix(in srgb, var(--callout-color) 7%, var(--bg));
   color: var(--text);
@@ -2020,7 +2021,7 @@ body.theme-light {
 
 .markdown-rendered .callout[data-callout="warning"],
 .markdown-rendered .callout[data-callout="caution"],
-.markdown-rendered .callout[data-callout="attention"] { --callout-color: var(--callout-color-warning); }
+.markdown-rendered .callout[data-callout="attention"] { --callout-color: var(--callout-color-warning); --callout-foreground: var(--obs-callout-foreground-warning, var(--callout-color)); }
 
 .markdown-rendered .callout[data-callout="danger"],
 .markdown-rendered .callout[data-callout="error"],
@@ -2046,8 +2047,8 @@ body.theme-light {
   border: 0;
   border-radius: 0;
   padding: 0.55rem 0.9rem;
-  border-bottom: 1.5px solid color-mix(in srgb, var(--callout-color) 55%, var(--border));
-  color: var(--callout-color);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--callout-foreground) 55%, var(--border));
+  color: var(--callout-foreground);
   background: color-mix(in srgb, var(--callout-color) 18%, var(--panel));
   font-size: 0.92em;
   font-weight: 800;

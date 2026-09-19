@@ -22,6 +22,73 @@ function isSafeColorValue(value: string): boolean {
   return /^#[0-9a-f]{3,8}$/i.test(value) || /^rgb\([^)]+\)$/i.test(value) || /^rgba\([^)]+\)$/i.test(value) || /^(?:transparent|black|white)$/i.test(value);
 }
 
+// Contrast correction helpers — only apply to opaque hex colors.
+function parseOpaqueHex(value: string): { r: number; g: number; b: number } | undefined {
+  const m = value.match(/^#([0-9a-f]{6})$/i);
+  if (!m) return undefined;
+  const r = parseInt(m[1].slice(0, 2), 16);
+  const g = parseInt(m[1].slice(2, 4), 16);
+  const b = parseInt(m[1].slice(4, 6), 16);
+  return { r, g, b };
+}
+
+function relativeLuminance({ r, g, b }: { r: number; g: number; b: number }): number {
+  const toLinear = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function contrastRatio(hexA: string, hexB: string): number | undefined {
+  const a = parseOpaqueHex(hexA);
+  const b = parseOpaqueHex(hexB);
+  if (!a || !b) return undefined;
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function mixHexTowardTarget(fgHex: string, targetHex: string, ratio: number): string {
+  const fg = parseOpaqueHex(fgHex);
+  const tgt = parseOpaqueHex(targetHex);
+  if (!fg || !tgt) return fgHex;
+  const mix = (c1: number, c2: number) => Math.round(c1 + (c2 - c1) * ratio);
+  const r = mix(fg.r, tgt.r);
+  const g = mix(fg.g, tgt.g);
+  const b = mix(fg.b, tgt.b);
+  const toHex = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function adjustForegroundForContrast(foregroundHex: string, backgroundHex: string): string {
+  const ratio = contrastRatio(foregroundHex, backgroundHex);
+  if (ratio === undefined || ratio >= 4.5) return foregroundHex;
+  const blackHex = "#000000";
+  const whiteHex = "#ffffff";
+  const cBlack = contrastRatio(blackHex, backgroundHex) || 0;
+  const cWhite = contrastRatio(whiteHex, backgroundHex) || 0;
+  const target = cBlack >= cWhite ? blackHex : whiteHex;
+  // Binary search for minimal ratio that achieves >=4.5.
+  let lo = 0;
+  let hi = 1;
+  let best = target;
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    const mixed = mixHexTowardTarget(foregroundHex, target, mid);
+    const c = contrastRatio(mixed, backgroundHex);
+    if (c !== undefined && c >= 4.5) {
+      best = mixed;
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  return best;
+}
+
 function stripCommentOutsideQuotes(str: string): string {
   let inSingle = false;
   let inDouble = false;
@@ -92,16 +159,10 @@ function resolveSyntaxColor(
   syntaxSource: Record<string, string> | undefined,
   palette: Record<string, string>,
   role: string,
-  standardAlias?: string,
-  brightAlias?: string,
-  isBase24?: boolean
+  standardAlias?: string
 ): string | undefined {
   const val = syntaxValue(syntaxSource || {}, role);
   if (val) return val;
-  if (isBase24 && brightAlias) {
-    const brightVal = paletteColor(palette, brightAlias);
-    if (brightVal) return brightVal;
-  }
   if (standardAlias) {
     const stdVal = paletteColor(palette, standardAlias);
     if (stdVal) return stdVal;
@@ -235,6 +296,15 @@ export function parseTaintedYAML(content: string): {
   };
 }
 
+function safeSyntaxCorrected(value: string, panelValue: string | undefined): string {
+  if (!panelValue) return value;
+  // Only apply correction when both values are parseable opaque 6-digit hex colors.
+  const fgHex = value.match(/^#([0-9a-f]{6})$/i) ? value : undefined;
+  const bgHex = panelValue.match(/^#([0-9a-f]{6})$/i) ? panelValue : undefined;
+  if (!fgHex || !bgHex) return value;
+  return adjustForegroundForContrast(fgHex, bgHex);
+}
+
 export function generateThemeCSS(parsed: any): string {
   const buildValues = (source: any, mode: "light" | "dark") => {
     const palette = source?.palette || {};
@@ -327,18 +397,19 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-callout-color-tip: ${success};`);
       vars.push(`  --obs-callout-color-success: ${success};`);
       vars.push(`  --obs-callout-color-warning: ${warning};`);
+      vars.push(`  --obs-callout-foreground-warning: ${safeSyntaxCorrected(warning || "#d97706", panel)};`);
       vars.push(`  --obs-callout-color-danger: ${danger};`);
       vars.push(`  --obs-callout-color-question: ${question};`);
       vars.push(`  --obs-callout-color-quote: ${info};`);
-      vars.push(`  --syntax-comment: ${resolveSyntaxColor(syntax, palette, "syntax-comment", "gray", undefined, isBase24) || muted || "#6a737d"};`);
-      vars.push(`  --syntax-string: ${resolveSyntaxColor(syntax, palette, "syntax-string", "green", "base14", isBase24) || accent || "#22863a"};`);
-      vars.push(`  --syntax-number: ${resolveSyntaxColor(syntax, palette, "syntax-number", "orange", undefined, isBase24) || accent || "#d97706"};`);
-      vars.push(`  --syntax-keyword: ${resolveSyntaxColor(syntax, palette, "syntax-keyword", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
-      vars.push(`  --syntax-function: ${resolveSyntaxColor(syntax, palette, "syntax-function", "blue", "base16", isBase24) || accent || "#005cc5"};`);
-      vars.push(`  --syntax-type: ${resolveSyntaxColor(syntax, palette, "syntax-type", "yellow", "base13", isBase24) || accent || "#b8860b"};`);
-      vars.push(`  --syntax-property: ${resolveSyntaxColor(syntax, palette, "syntax-property", "red", "base12", isBase24) || danger || "#d73a49"};`);
-      vars.push(`  --syntax-operator: ${resolveSyntaxColor(syntax, palette, "syntax-operator", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
-      vars.push(`  --syntax-punctuation: ${resolveSyntaxColor(syntax, palette, "syntax-punctuation", undefined, undefined, isBase24) || foreground || muted || "#24292e"};`);
+      vars.push(`  --syntax-comment: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-comment", "gray") || muted || "#6a737d", panel)};`);
+      vars.push(`  --syntax-string: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-string", "green") || accent || "#22863a", panel)};`);
+      vars.push(`  --syntax-number: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-number", "orange") || accent || "#d97706", panel)};`);
+      vars.push(`  --syntax-keyword: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-keyword", "magenta") || accent || "#6f42c1", panel)};`);
+      vars.push(`  --syntax-function: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-function", "blue") || accent || "#005cc5", panel)};`);
+      vars.push(`  --syntax-type: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-type", "yellow") || accent || "#b8860b", panel)};`);
+      vars.push(`  --syntax-property: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-property", "red") || danger || "#d73a49", panel)};`);
+      vars.push(`  --syntax-operator: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-operator", "magenta") || accent || "#6f42c1", panel)};`);
+      vars.push(`  --syntax-punctuation: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-punctuation", undefined) || foreground || muted || "#24292e", panel)};`);
     } else {
       vars.push(`  --bg: ${background || "#f5f7fa"};`);
       vars.push(`  --panel: ${panel || "#ffffff"};`);
@@ -372,18 +443,19 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-callout-color-tip: ${success};`);
       vars.push(`  --obs-callout-color-success: ${success};`);
       vars.push(`  --obs-callout-color-warning: ${warning};`);
+      vars.push(`  --obs-callout-foreground-warning: ${safeSyntaxCorrected(warning || "#d97706", panel)};`);
       vars.push(`  --obs-callout-color-danger: ${danger};`);
       vars.push(`  --obs-callout-color-question: ${question};`);
       vars.push(`  --obs-callout-color-quote: ${info};`);
-      vars.push(`  --syntax-comment: ${resolveSyntaxColor(syntax, palette, "syntax-comment", "gray", undefined, isBase24) || muted || "#6a737d"};`);
-      vars.push(`  --syntax-string: ${resolveSyntaxColor(syntax, palette, "syntax-string", "green", "base14", isBase24) || accent || "#22863a"};`);
-      vars.push(`  --syntax-number: ${resolveSyntaxColor(syntax, palette, "syntax-number", "orange", undefined, isBase24) || accent || "#d97706"};`);
-      vars.push(`  --syntax-keyword: ${resolveSyntaxColor(syntax, palette, "syntax-keyword", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
-      vars.push(`  --syntax-function: ${resolveSyntaxColor(syntax, palette, "syntax-function", "blue", "base16", isBase24) || accent || "#005cc5"};`);
-      vars.push(`  --syntax-type: ${resolveSyntaxColor(syntax, palette, "syntax-type", "yellow", "base13", isBase24) || accent || "#b8860b"};`);
-      vars.push(`  --syntax-property: ${resolveSyntaxColor(syntax, palette, "syntax-property", "red", "base12", isBase24) || danger || "#d73a49"};`);
-      vars.push(`  --syntax-operator: ${resolveSyntaxColor(syntax, palette, "syntax-operator", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
-      vars.push(`  --syntax-punctuation: ${resolveSyntaxColor(syntax, palette, "syntax-punctuation", undefined, undefined, isBase24) || foreground || muted || "#24292e"};`);
+      vars.push(`  --syntax-comment: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-comment", "gray") || muted || "#6a737d", panel)};`);
+      vars.push(`  --syntax-string: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-string", "green") || accent || "#22863a", panel)};`);
+      vars.push(`  --syntax-number: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-number", "orange") || accent || "#d97706", panel)};`);
+      vars.push(`  --syntax-keyword: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-keyword", "magenta") || accent || "#6f42c1", panel)};`);
+      vars.push(`  --syntax-function: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-function", "blue") || accent || "#005cc5", panel)};`);
+      vars.push(`  --syntax-type: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-type", "yellow") || accent || "#b8860b", panel)};`);
+      vars.push(`  --syntax-property: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-property", "red") || danger || "#d73a49", panel)};`);
+      vars.push(`  --syntax-operator: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-operator", "magenta") || accent || "#6f42c1", panel)};`);
+      vars.push(`  --syntax-punctuation: ${safeSyntaxCorrected(resolveSyntaxColor(syntax, palette, "syntax-punctuation", undefined) || foreground || muted || "#24292e", panel)};`);
     }
     return vars.join("\n");
   };

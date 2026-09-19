@@ -62,6 +62,23 @@ body {
   color: var(--text);
 }
 
+/* Normalized theme roles used by all publication components. */
+body {
+  --obs-selection: var(--accent-soft);
+  --obs-heading: var(--text);
+  --obs-danger: var(--danger);
+  --obs-warning: var(--accent);
+  --obs-success: var(--accent);
+  --obs-info: var(--accent);
+  --obs-question: var(--accent);
+  --obs-quote: var(--muted);
+}
+
+::selection {
+  color: var(--text);
+  background: var(--obs-selection, var(--accent-soft));
+}
+
 body.theme-light {
   --bg: var(--background-primary, #f7f5ef);
   --panel: var(--background-primary-alt, #fffdf8);
@@ -955,6 +972,7 @@ button {
   margin: 1.55em 0 0.55em;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  color: var(--obs-heading, var(--text));
 }
 
 .markdown-body h1 {
@@ -1431,7 +1449,8 @@ body.theme-dark .markdown-rendered .code-block pre > code,
 .markdown-body blockquote {
   border-left: 4px solid var(--border);
   padding-left: 1rem;
-  color: var(--muted);
+  border-left-color: var(--obs-quote, var(--border));
+  color: var(--obs-quote, var(--muted));
 }
 
 /* (callout styles live in the theme adapter further down) */
@@ -1717,7 +1736,7 @@ body.theme-dark {
 }
 
 .markdown-body th {
-  background: color-mix(in srgb, var(--text) 5%, transparent);
+  background: color-mix(in srgb, var(--obs-selection, var(--text)) 18%, transparent);
 }
 
 .markdown-table-wrap {

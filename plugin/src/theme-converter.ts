@@ -152,7 +152,7 @@ export function generateThemeCSS(parsed: any): string {
       ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("black") || paletteColor("white")
       : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || paletteColor("white");
     const foreground = mode === "light"
-      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor("black") || paletteColor("white")
+      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor("white") || paletteColor("black")
       : uiColor("chrome.foreground.dark", "foreground.dark", "foreground.normal", "highlight.text.foreground") || paletteColor("white") || paletteColor("black");
     const panel = mode === "light"
       ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("black") || background
@@ -160,7 +160,14 @@ export function generateThemeCSS(parsed: any): string {
     const muted = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal") || paletteColor("gray");
     const border = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background") || paletteColor("gray");
     const accent = uiColor(mode === "light" ? "accent.light" : "accent.dark", "accent.normal", "highlight.text.foreground") || paletteColor("blue") || paletteColor("cyan");
-    return { palette, background, foreground, panel, muted, border, accent };
+    const selection = uiColor("selection.background", "highlight.background") || paletteColor("gray_dark") || paletteColor("blue");
+    const danger = uiColor("error.foreground", "danger.foreground") || paletteColor("red") || "#dc2626";
+    const warning = uiColor("warning.foreground") || paletteColor("orange") || paletteColor("yellow") || "#d97706";
+    const success = uiColor("success.foreground") || paletteColor("green") || "#16a34a";
+    const info = uiColor("info.foreground") || paletteColor("cyan") || paletteColor("blue") || "#0891b2";
+    const question = uiColor("question.foreground") || paletteColor("magenta") || "#7c3aed";
+    const heading = uiColor("heading.foreground") || paletteColor("blue") || foreground;
+    return { palette, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading };
   };
   const lightValues = buildValues(parsed?.light || parsed, "light");
   const darkValues = buildValues(parsed?.dark || parsed, "dark");
@@ -169,7 +176,7 @@ export function generateThemeCSS(parsed: any): string {
 
   // Generate variables for both modes
   const generateModeVars = (mode: "light" | "dark") => {
-    const { palette, background, foreground, panel, muted, border, accent } = mode === "dark" ? darkValues : lightValues;
+    const { palette, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading } = mode === "dark" ? darkValues : lightValues;
     const vars: string[] = [];
     if (mode === "dark") {
       vars.push(`  --bg: ${background || "#0f1322"};`);
@@ -179,10 +186,18 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --border: ${border || "#2a3050"};`);
       vars.push(`  --accent: ${accent || "#6b8cce"};`);
       vars.push(`  --accent-soft: ${(accent || "#6b8cce") + "22"};`);
-      vars.push(`  --danger: ${palette.red || "#ff6b6b"};`);
-      vars.push(`  --danger-bg: ${(palette.red || "#ff6b6b") + "22"};`);
+      vars.push(`  --danger: ${danger};`);
+      vars.push(`  --danger-bg: ${danger + "22"};`);
       vars.push(`  --code-bg: ${panel || "#1a2035"};`);
       vars.push(`  --code-normal: ${foreground || "#e6eaf0"};`);
+      vars.push(`  --obs-selection: ${selection};`);
+      vars.push(`  --obs-heading: ${heading};`);
+      vars.push(`  --obs-danger: ${danger};`);
+      vars.push(`  --obs-warning: ${warning};`);
+      vars.push(`  --obs-success: ${success};`);
+      vars.push(`  --obs-info: ${info};`);
+      vars.push(`  --obs-question: ${question};`);
+      vars.push(`  --obs-quote: ${info};`);
       vars.push(`  --shadow: 0 18px 50px rgba(0, 0, 0, 0.3);`);
       vars.push(`  --link-color: ${accent || "#6b8cce"};`);
       vars.push(`  --obs-canvas: ${background || "#0f1322"};`);
@@ -192,13 +207,13 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-text: ${foreground || "#e6eaf0"};`);
       vars.push(`  --obs-muted: ${muted || "#9aa3b8"};`);
       vars.push(`  --obs-code-bg: ${panel || "#1a2035"};`);
-      vars.push(`  --obs-callout-color-note: ${palette.blue || palette.cyan || "#6b8cce"};`);
-      vars.push(`  --obs-callout-color-tip: ${palette.green || "#6bcb77"};`);
-      vars.push(`  --obs-callout-color-success: ${palette.green || "#6bcb77"};`);
-      vars.push(`  --obs-callout-color-warning: ${palette.yellow || palette.orange || "#ffd166"};`);
-      vars.push(`  --obs-callout-color-danger: ${palette.red || "#ff6b6b"};`);
-      vars.push(`  --obs-callout-color-question: ${palette.magenta || "#c08bc8"};`);
-      vars.push(`  --obs-callout-color-quote: ${palette.cyan || palette.gray || "#88c0d0"};`);
+      vars.push(`  --obs-callout-color-note: ${accent || info};`);
+      vars.push(`  --obs-callout-color-tip: ${success};`);
+      vars.push(`  --obs-callout-color-success: ${success};`);
+      vars.push(`  --obs-callout-color-warning: ${warning};`);
+      vars.push(`  --obs-callout-color-danger: ${danger};`);
+      vars.push(`  --obs-callout-color-question: ${question};`);
+      vars.push(`  --obs-callout-color-quote: ${info};`);
     } else {
       vars.push(`  --bg: ${background || "#f5f7fa"};`);
       vars.push(`  --panel: ${panel || "#ffffff"};`);
@@ -207,10 +222,18 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --border: ${border || "#c8d1e0"};`);
       vars.push(`  --accent: ${accent || "#2a5ca8"};`);
       vars.push(`  --accent-soft: ${(accent || "#2a5ca8") + "22"};`);
-      vars.push(`  --danger: ${palette.red || "#b42318"};`);
-      vars.push(`  --danger-bg: ${(palette.red || "#b42318") + "22"};`);
+      vars.push(`  --danger: ${danger};`);
+      vars.push(`  --danger-bg: ${danger + "22"};`);
       vars.push(`  --code-bg: ${panel || "#eef3f8"};`);
       vars.push(`  --code-normal: ${foreground || "#1a2332"};`);
+      vars.push(`  --obs-selection: ${selection};`);
+      vars.push(`  --obs-heading: ${heading};`);
+      vars.push(`  --obs-danger: ${danger};`);
+      vars.push(`  --obs-warning: ${warning};`);
+      vars.push(`  --obs-success: ${success};`);
+      vars.push(`  --obs-info: ${info};`);
+      vars.push(`  --obs-question: ${question};`);
+      vars.push(`  --obs-quote: ${info};`);
       vars.push(`  --shadow: 0 18px 50px rgba(40, 33, 23, 0.09);`);
       vars.push(`  --link-color: ${accent || "#2a5ca8"};`);
       vars.push(`  --obs-canvas: ${background || "#f5f7fa"};`);
@@ -220,13 +243,13 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-text: ${foreground || "#1a2332"};`);
       vars.push(`  --obs-muted: ${muted || "#5a6b7b"};`);
       vars.push(`  --obs-code-bg: ${panel || "#eef3f8"};`);
-      vars.push(`  --obs-callout-color-note: ${palette.blue || palette.cyan || "#3b82f6"};`);
-      vars.push(`  --obs-callout-color-tip: ${palette.green || "#16a34a"};`);
-      vars.push(`  --obs-callout-color-success: ${palette.green || "#16a34a"};`);
-      vars.push(`  --obs-callout-color-warning: ${palette.yellow || palette.orange || "#d97706"};`);
-      vars.push(`  --obs-callout-color-danger: ${palette.red || "#dc2626"};`);
-      vars.push(`  --obs-callout-color-question: ${palette.magenta || "#7c3aed"};`);
-      vars.push(`  --obs-callout-color-quote: ${palette.cyan || palette.gray || "#0891b2"};`);
+      vars.push(`  --obs-callout-color-note: ${accent || info};`);
+      vars.push(`  --obs-callout-color-tip: ${success};`);
+      vars.push(`  --obs-callout-color-success: ${success};`);
+      vars.push(`  --obs-callout-color-warning: ${warning};`);
+      vars.push(`  --obs-callout-color-danger: ${danger};`);
+      vars.push(`  --obs-callout-color-question: ${question};`);
+      vars.push(`  --obs-callout-color-quote: ${info};`);
     }
     return vars.join("\n");
   };

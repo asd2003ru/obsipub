@@ -29,12 +29,57 @@ function normalizeColor(value: unknown): string | undefined {
   return isSafeColorValue(color) ? color : undefined;
 }
 
+const syntaxSpecificity: Record<string, string[]> = {
+  "syntax-comment": ["comment.documentation", "comment.block", "comment.line", "comment.tag", "comment"],
+  "syntax-string": ["string.interpolated", "string.template", "string.regexp", "string.quoted", "string.unquoted", "string"],
+  "syntax-number": ["constant.numeric.integer", "constant.numeric.float", "constant.numeric", "number", "constant.language", "constant"],
+  "syntax-keyword": ["keyword.control", "storage.type", "storage.modifier", "storage", "keyword"],
+  "syntax-function": ["entity.name.function", "entity.name.method", "support.function", "function", "method"],
+  "syntax-type": ["entity.name.interface", "entity.name.class", "entity.name.type", "support.type", "interface", "class", "type"],
+  "syntax-property": ["entity.name.property", "entity.name.variable", "variable.other", "variable.parameter", "variable.language", "property", "variable", "entity.name.tag", "tag"],
+  "syntax-operator": ["keyword.operator.logical", "keyword.operator.comparison", "keyword.operator.arithmetic", "keyword.operator.bitwise", "keyword.operator", "operator"],
+  "syntax-punctuation": ["punctuation.definition", "punctuation.separator", "punctuation.terminator", "punctuation.section", "meta.brace", "punctuation"],
+};
+
+function syntaxValue(normalizedSyntax: Record<string, string>, role: string): string | undefined {
+  const keys = syntaxSpecificity[role] || [role];
+  for (const k of keys) {
+    const val = normalizedSyntax[k.toLowerCase()];
+    if (val) {
+      const norm = normalizeColor(val);
+      if (norm) return norm;
+    }
+  }
+  return undefined;
+}
+
 const paletteAliases: Record<string, string[]> = {
   black: ["black", "base00"], gray: ["gray", "base03"], white: ["white", "base07"],
   red: ["red", "base08"], orange: ["orange", "base09"], yellow: ["yellow", "base0A"],
   green: ["green", "base0B"], cyan: ["cyan", "base0C"], blue: ["blue", "base0D"],
   magenta: ["magenta", "base0E"], brown: ["brown", "base0F"],
 };
+
+function resolveSyntaxColor(
+  syntaxSource: Record<string, string> | undefined,
+  palette: Record<string, string>,
+  role: string,
+  standardAlias?: string,
+  brightAlias?: string,
+  isBase24?: boolean
+): string | undefined {
+  const val = syntaxValue(syntaxSource || {}, role);
+  if (val) return val;
+  if (isBase24 && brightAlias) {
+    const brightVal = paletteColor(palette, brightAlias);
+    if (brightVal) return brightVal;
+  }
+  if (standardAlias) {
+    const stdVal = paletteColor(palette, standardAlias);
+    if (stdVal) return stdVal;
+  }
+  return undefined;
+}
 
 function paletteColor(palette: Record<string, string>, key: string, fallback?: string): string | undefined {
   for (const alias of paletteAliases[key] || [key]) {
@@ -102,6 +147,8 @@ export function parseTaintedYAML(content: string): {
         base04: "gray_light", base05: "white", base06: "white_bright", base07: "white",
         base08: "red", base09: "orange", base0a: "yellow", base0b: "green",
         base0c: "cyan", base0d: "blue", base0e: "magenta", base0f: "brown",
+        base10: "base10", base11: "base11", base12: "base12", base13: "base13",
+        base14: "base14", base15: "base15", base16: "base16", base17: "base17",
       };
       if (legacyNames[key.toLowerCase()]) {
         result.palette[legacyNames[key.toLowerCase()]] = value;
@@ -172,8 +219,15 @@ export function generateThemeCSS(parsed: any): string {
     const success = uiColor("success.foreground") || paletteColor(palette, "green") || "#16a34a";
     const info = uiColor("info.foreground") || paletteColor(palette, "cyan") || paletteColor(palette, "blue") || "#0891b2";
     const question = uiColor("question.foreground") || paletteColor(palette, "magenta") || "#7c3aed";
+    const syntaxRaw = source?.syntax || {};
+    const syntaxNormalized: Record<string, string> = {};
+    for (const [k, v] of Object.entries(syntaxRaw)) {
+      const color = normalizeColor(v);
+      if (color) syntaxNormalized[k.toLowerCase()] = color;
+    }
+    const syntax = syntaxNormalized;
     const heading = uiColor("heading.foreground") || paletteColor(palette, "blue") || foreground;
-    return { palette, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading };
+    return { palette, syntax, system: String(source?.system || "").toLowerCase(), background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading };
   };
   const lightValues = buildValues(parsed?.light || parsed, "light");
   const darkValues = buildValues(parsed?.dark || parsed, "dark");
@@ -182,7 +236,9 @@ export function generateThemeCSS(parsed: any): string {
 
   // Generate variables for both modes
   const generateModeVars = (mode: "light" | "dark") => {
-    const { palette, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading } = mode === "dark" ? darkValues : lightValues;
+    const values = mode === "dark" ? darkValues : lightValues;
+    const { palette, syntax, system, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading } = values;
+    const isBase24 = system === "base24";
     const vars: string[] = [];
     if (mode === "dark") {
       vars.push(`  --bg: ${background || "#0f1322"};`);
@@ -220,15 +276,15 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-callout-color-danger: ${danger};`);
       vars.push(`  --obs-callout-color-question: ${question};`);
       vars.push(`  --obs-callout-color-quote: ${info};`);
-      vars.push(`  --syntax-comment: ${paletteColor(darkValues.palette || {}, "gray", muted) || muted || "#6a737d"};`);
-      vars.push(`  --syntax-string: ${paletteColor(darkValues.palette || {}, "blue", accent) || accent || "#032f62"};`);
-      vars.push(`  --syntax-number: ${paletteColor(darkValues.palette || {}, "yellow", accent) || accent || "#005cc5"};`);
-      vars.push(`  --syntax-keyword: ${paletteColor(darkValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
-      vars.push(`  --syntax-function: ${paletteColor(darkValues.palette || {}, "magenta", accent) || accent || "#6f42c1"};`);
-      vars.push(`  --syntax-type: ${paletteColor(darkValues.palette || {}, "green", success) || success || "#22863a"};`);
-      vars.push(`  --syntax-property: ${paletteColor(darkValues.palette || {}, "blue", accent) || accent || "#005cc5"};`);
-      vars.push(`  --syntax-operator: ${paletteColor(darkValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
-      vars.push(`  --syntax-punctuation: ${foreground || muted || "#24292e"};`);
+      vars.push(`  --syntax-comment: ${resolveSyntaxColor(syntax, palette, "syntax-comment", "gray", undefined, isBase24) || muted || "#6a737d"};`);
+      vars.push(`  --syntax-string: ${resolveSyntaxColor(syntax, palette, "syntax-string", "green", "base14", isBase24) || accent || "#22863a"};`);
+      vars.push(`  --syntax-number: ${resolveSyntaxColor(syntax, palette, "syntax-number", "orange", undefined, isBase24) || accent || "#d97706"};`);
+      vars.push(`  --syntax-keyword: ${resolveSyntaxColor(syntax, palette, "syntax-keyword", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
+      vars.push(`  --syntax-function: ${resolveSyntaxColor(syntax, palette, "syntax-function", "blue", "base16", isBase24) || accent || "#005cc5"};`);
+      vars.push(`  --syntax-type: ${resolveSyntaxColor(syntax, palette, "syntax-type", "yellow", "base13", isBase24) || accent || "#b8860b"};`);
+      vars.push(`  --syntax-property: ${resolveSyntaxColor(syntax, palette, "syntax-property", "red", "base12", isBase24) || danger || "#d73a49"};`);
+      vars.push(`  --syntax-operator: ${resolveSyntaxColor(syntax, palette, "syntax-operator", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
+      vars.push(`  --syntax-punctuation: ${resolveSyntaxColor(syntax, palette, "syntax-punctuation", undefined, undefined, isBase24) || foreground || muted || "#24292e"};`);
     } else {
       vars.push(`  --bg: ${background || "#f5f7fa"};`);
       vars.push(`  --panel: ${panel || "#ffffff"};`);
@@ -265,15 +321,15 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-callout-color-danger: ${danger};`);
       vars.push(`  --obs-callout-color-question: ${question};`);
       vars.push(`  --obs-callout-color-quote: ${info};`);
-      vars.push(`  --syntax-comment: ${paletteColor(lightValues.palette || {}, "gray", muted) || muted || "#6a737d"};`);
-      vars.push(`  --syntax-string: ${paletteColor(lightValues.palette || {}, "blue", accent) || accent || "#032f62"};`);
-      vars.push(`  --syntax-number: ${paletteColor(lightValues.palette || {}, "yellow", accent) || accent || "#005cc5"};`);
-      vars.push(`  --syntax-keyword: ${paletteColor(lightValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
-      vars.push(`  --syntax-function: ${paletteColor(lightValues.palette || {}, "magenta", accent) || accent || "#6f42c1"};`);
-      vars.push(`  --syntax-type: ${paletteColor(lightValues.palette || {}, "green", success) || success || "#22863a"};`);
-      vars.push(`  --syntax-property: ${paletteColor(lightValues.palette || {}, "blue", accent) || accent || "#005cc5"};`);
-      vars.push(`  --syntax-operator: ${paletteColor(lightValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
-      vars.push(`  --syntax-punctuation: ${foreground || muted || "#24292e"};`);
+      vars.push(`  --syntax-comment: ${resolveSyntaxColor(syntax, palette, "syntax-comment", "gray", undefined, isBase24) || muted || "#6a737d"};`);
+      vars.push(`  --syntax-string: ${resolveSyntaxColor(syntax, palette, "syntax-string", "green", "base14", isBase24) || accent || "#22863a"};`);
+      vars.push(`  --syntax-number: ${resolveSyntaxColor(syntax, palette, "syntax-number", "orange", undefined, isBase24) || accent || "#d97706"};`);
+      vars.push(`  --syntax-keyword: ${resolveSyntaxColor(syntax, palette, "syntax-keyword", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
+      vars.push(`  --syntax-function: ${resolveSyntaxColor(syntax, palette, "syntax-function", "blue", "base16", isBase24) || accent || "#005cc5"};`);
+      vars.push(`  --syntax-type: ${resolveSyntaxColor(syntax, palette, "syntax-type", "yellow", "base13", isBase24) || accent || "#b8860b"};`);
+      vars.push(`  --syntax-property: ${resolveSyntaxColor(syntax, palette, "syntax-property", "red", "base12", isBase24) || danger || "#d73a49"};`);
+      vars.push(`  --syntax-operator: ${resolveSyntaxColor(syntax, palette, "syntax-operator", "magenta", "base17", isBase24) || accent || "#6f42c1"};`);
+      vars.push(`  --syntax-punctuation: ${resolveSyntaxColor(syntax, palette, "syntax-punctuation", undefined, undefined, isBase24) || foreground || muted || "#24292e"};`);
     }
     return vars.join("\n");
   };

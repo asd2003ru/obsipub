@@ -86,29 +86,31 @@ test("uses light and dark UI keys from a single Tinted8 scheme", () => {
   assert.match(css, /body\.theme-dark[\s\S]*--bg: #111111[\s\S]*--text: #eeeeee/);
 });
 
-test("emits syntax token variables derived from palette", () => {
+test("syntax token mapping uses distinct Base16 roles with exact colors", () => {
   const parsed = parseTaintedYAML(`scheme:
   name: "Syntax"
-  system: "tinted8"
+  system: "base16"
 palette:
-  black: "#000000"
-  white: "#ffffff"
-  blue: "#0055aa"
-  red: "#cc0000"
-  green: "#22863a"
-  gray: "#6a737d"
-  magenta: "#6f42c1"
+  base00: "#181818"
+  base03: "#828282"
+  base05: "#e8e8e8"
+  base08: "#ff5555"
+  base09: "#ff8800"
+  base0A: "#ffd700"
+  base0B: "#55aa55"
+  base0D: "#5350b9"
+  base0E: "#b94ac2"
 `);
   const css = generateThemeCSS(parsed);
-  assert.ok(css.includes("--syntax-keyword:"));
-  assert.ok(css.includes("--syntax-string:"));
-  assert.ok(css.includes("--syntax-number:"));
-  assert.ok(css.includes("--syntax-comment:"));
-  assert.ok(css.includes("--syntax-function:"));
-  assert.ok(css.includes("--syntax-type:"));
-  assert.ok(css.includes("--syntax-property:"));
-  assert.ok(css.includes("--syntax-operator:"));
-  assert.ok(css.includes("--syntax-punctuation:"));
+  // Conventional Base16 role mapping
+  assert.ok(css.includes("--syntax-comment: #828282"), "comment should map to base03 gray");
+  assert.ok(css.includes("--syntax-string: #55aa55"), "string should map to base0B green");
+  assert.ok(css.includes("--syntax-number: #ff8800"), "number should map to base09 orange");
+  assert.ok(css.includes("--syntax-keyword: #b94ac2"), "keyword should map to base0E magenta");
+  assert.ok(css.includes("--syntax-function: #5350b9"), "function should map to base0D blue");
+  assert.ok(css.includes("--syntax-type: #ffd700"), "type should map to base0A yellow");
+  assert.ok(css.includes("--syntax-property: #ff5555"), "property should map to base08 red");
+  assert.ok(css.includes("--syntax-operator: #b94ac2"), "operator should map to base0E magenta");
 });
 
 test("Base16 with yellow base03 emits neutral color-mix for muted and border", () => {
@@ -170,4 +172,106 @@ test("sanitizeSchemeId prevents traversal", () => {
   assert.equal(sanitizeSchemeId("tinted8-nord"), "tinted8-nord");
   assert.equal(sanitizeSchemeId("bad/name"), "bad-name");
   assert.equal(sanitizeSchemeId("../secret"), "---secret");
+});
+
+test("parses and preserves Base24 base10-base17 palette colors", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "Base24"
+  system: "base24"
+palette:
+  base00: "#181818"
+  base10: "#ff5555"
+  base11: "#ffaa55"
+  base12: "#ffdd55"
+  base13: "#55ff55"
+  base14: "#55ffff"
+  base15: "#5555ff"
+  base16: "#aa55ff"
+  base17: "#ff55ff"
+`);
+  assert.equal(parsed.system, "base24");
+  assert.equal(parsed.palette?.base10, "#ff5555");
+  assert.equal(parsed.palette?.base12, "#ffdd55");
+  assert.equal(parsed.palette?.base17, "#ff55ff");
+});
+
+test("exact Tinted8 syntax precedence over palette", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "SyntaxPrecedence"
+  system: "tinted8"
+syntax:
+  comment: "#777777"
+  string: "#22863a"
+  constant.numeric: "#d97706"
+  keyword: "#6f42c1"
+  entity.name.function: "#005cc5"
+  entity.name.type: "#b8860b"
+  variable: "#d73a49"
+  keyword.operator: "#6f42c1"
+  punctuation: "#e6eaf0"
+palette:
+  black: "#000000"
+  white: "#ffffff"
+`);
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--syntax-comment: #777777"), "authored comment syntax should win");
+  assert.ok(css.includes("--syntax-string: #22863a"), "authored string syntax should win");
+  assert.ok(css.includes("--syntax-number: #d97706"), "authored numeric syntax should win");
+  assert.ok(css.includes("--syntax-keyword: #6f42c1"), "authored keyword syntax should win");
+  assert.ok(css.includes("--syntax-function: #005cc5"), "authored function syntax should win");
+  assert.ok(css.includes("--syntax-type: #b8860b"), "authored type syntax should win");
+  assert.ok(css.includes("--syntax-property: #d73a49"), "authored property/variable syntax should win");
+  assert.ok(css.includes("--syntax-operator: #6f42c1"), "authored operator syntax should win");
+  assert.ok(css.includes("--syntax-punctuation: #e6eaf0"), "authored punctuation syntax should win");
+});
+
+test("Base24 prefers bright counterparts for syntax roles", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "Base24Bright"
+  system: "base24"
+palette:
+  base00: "#181818"
+  base03: "#828282"
+  base08: "#ff5555"
+  base09: "#ff8800"
+  base0A: "#ffd700"
+  base0B: "#55aa55"
+  base0D: "#5350b9"
+  base0E: "#b94ac2"
+  base12: "#ff7777"
+  base13: "#ffff77"
+  base14: "#77ff77"
+  base16: "#7777ff"
+  base17: "#ff77ff"
+`);
+  const css = generateThemeCSS(parsed);
+  // Bright counterparts should be preferred over standard colors
+  assert.ok(css.includes("--syntax-property: #ff7777"), "property should prefer bright base12");
+  assert.ok(css.includes("--syntax-type: #ffff77"), "type should prefer bright base13");
+  assert.ok(css.includes("--syntax-string: #77ff77"), "string should prefer bright base14");
+  assert.ok(css.includes("--syntax-function: #7777ff"), "function should prefer bright base16");
+  assert.ok(css.includes("--syntax-keyword: #ff77ff"), "keyword should prefer bright base17");
+  assert.ok(css.includes("--syntax-operator: #ff77ff"), "operator should prefer bright base17");
+  // Number and comment keep standard roles/fallbacks (no bright counterparts for number/comment)
+  assert.ok(css.includes("--syntax-number: #ff8800"), "number should keep standard base09");
+  assert.ok(css.includes("--syntax-comment: #828282"), "comment should keep standard base03");
+});
+
+test("Base24 bright-token fallback to standard when bright missing", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "Base24Fallback"
+  system: "base24"
+palette:
+  base00: "#181818"
+  base08: "#ff5555"
+  base0D: "#5350b9"
+  base0E: "#b94ac2"
+`);
+  const css = generateThemeCSS(parsed);
+  // Function uses standard blue because bright base16 is missing
+  assert.ok(css.includes("--syntax-function: #5350b9"), "function should fall back to base0D when bright base16 missing");
+  assert.ok(css.includes("--syntax-keyword: #b94ac2"), "keyword should fall back to base0E when bright base17 missing");
+  assert.ok(css.includes("--syntax-operator: #b94ac2"), "operator should fall back to base0E when bright base17 missing");
+  // Property uses standard red when bright base12 missing
+  assert.ok(css.includes("--syntax-property: #ff5555"), "property should fall back to base08 when bright base12 missing");
 });

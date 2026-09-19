@@ -1270,7 +1270,7 @@ body.theme-dark .markdown-rendered .code-block pre,
   border: var(--window-border, none);
   border-radius: var(--radius-m, 8px);
   padding: 10px 0;
-  background: var(--code-background, #fff);
+  background: var(--code-bg, var(--code-background, var(--panel, #fff)));
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb-bg, var(--background-primary-alt, var(--panel, #fffdf8))) var(--scrollbar-bg, var(--background-secondary, var(--bg, #f7f5ef)));
 }
@@ -1304,7 +1304,7 @@ body.theme-dark .markdown-rendered .code-block pre > code,
   border-radius: 0;
   padding: 0;
   background: transparent;
-  color: var(--code-normal, #000);
+  color: var(--code-normal, var(--text, #000));
   counter-reset: code-line;
   font-family: var(--font-monospace);
   font-size: var(--code-size, 0.9em);

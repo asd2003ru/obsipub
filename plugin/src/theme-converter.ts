@@ -121,9 +121,9 @@ export function parseTaintedYAML(content: string): {
 }
 
 export function generateThemeCSS(parsed: any): string {
-  const palette = parsed.palette || {};
-  const syntax = parsed.syntax || {};
-  const ui = parsed.ui || {};
+  const buildValues = (source: any, mode: "light" | "dark") => {
+    const palette = source?.palette || {};
+    const ui = source?.ui || {};
 
   // Tinted8 defines the semantic UI colors separately from its terminal palette.
   // Prefer these values when present (for example chrome.background.dark and
@@ -135,45 +135,41 @@ export function generateThemeCSS(parsed: any): string {
     }
     return undefined;
   };
-  const paletteAliases: Record<string, string[]> = {
+    const paletteAliases: Record<string, string[]> = {
     black: ["black", "base00"], gray: ["gray", "base03"], white: ["white", "base07"],
     red: ["red", "base08"], orange: ["orange", "base09"], yellow: ["yellow", "base0A"],
     green: ["green", "base0B"], cyan: ["cyan", "base0C"], blue: ["blue", "base0D"],
     magenta: ["magenta", "base0E"], brown: ["brown", "base0F"],
+    };
+    const paletteColor = (key: string, fallback?: string): string | undefined => {
+      for (const alias of paletteAliases[key] || [key]) {
+        const value = normalizeColor(palette[alias]);
+        if (value) return value;
+      }
+      return fallback;
+    };
+    const background = mode === "light"
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("white") || paletteColor("black")
+      : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || paletteColor("white");
+    const foreground = mode === "light"
+      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor("black") || paletteColor("white")
+      : uiColor("chrome.foreground.dark", "foreground.dark", "foreground.normal", "highlight.text.foreground") || paletteColor("white") || paletteColor("black");
+    const panel = mode === "light"
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("white") || background
+      : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || background;
+    const muted = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal") || paletteColor("gray");
+    const border = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background") || paletteColor("gray");
+    const accent = uiColor(mode === "light" ? "accent.light" : "accent.dark", "accent.normal", "highlight.text.foreground") || paletteColor("blue") || paletteColor("cyan");
+    return { palette, background, foreground, panel, muted, border, accent };
   };
-  const paletteColor = (key: string, fallback?: string): string | undefined => {
-    for (const alias of paletteAliases[key] || [key]) {
-      const value = normalizeColor(palette[alias]);
-      if (value) return value;
-    }
-    return fallback;
-  };
-  const background = uiColor("background.normal", "chrome.background.dark", "chrome.background") || paletteColor("black");
-  const foreground = uiColor("foreground.normal", "highlight.text.foreground", "chrome.foreground.dark") || paletteColor("white");
-  const panel = uiColor("background.dim", "chrome.background", "chrome.background.dark") || background;
-  const muted = uiColor("foreground.dim", "foreground.normal") || paletteColor("gray");
-  const border = uiColor("border.normal", "chrome.border", "highlight.background") || paletteColor("gray");
-  const accent = uiColor("accent.normal", "highlight.text.foreground") || paletteColor("blue") || paletteColor("cyan");
+  const lightValues = buildValues(parsed?.light || parsed, "light");
+  const darkValues = buildValues(parsed?.dark || parsed, "dark");
 
   const lines: string[] = ["/* Converted from Tinted theme — review before publishing. */"];
 
-  const lightVars: string[] = [];
-  const darkVars: string[] = [];
-
-  const addVar = (vars: string[], key: string, value: string) => {
-    vars.push(`  ${key}: ${value};`);
-  };
-
-  // Basic semantic mapping using palette colors directly for dark,
-  // and lightened/inferred values for light.
-  const darkColor = (key: string, fallbackDark: string, fallbackLight: string) => palette[key] || (key.endsWith("-bg") ? fallbackDark : fallbackDark);
-  const lightColor = (key: string, fallbackDark: string, fallbackLight: string) => {
-    if (palette[key]) return palette[key];
-    return fallbackLight;
-  };
-
   // Generate variables for both modes
   const generateModeVars = (mode: "light" | "dark") => {
+    const { palette, background, foreground, panel, muted, border, accent } = mode === "dark" ? darkValues : lightValues;
     const vars: string[] = [];
     if (mode === "dark") {
       vars.push(`  --bg: ${background || "#0f1322"};`);
@@ -186,6 +182,7 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --danger: ${palette.red || "#ff6b6b"};`);
       vars.push(`  --danger-bg: ${(palette.red || "#ff6b6b") + "22"};`);
       vars.push(`  --code-bg: ${panel || "#1a2035"};`);
+      vars.push(`  --code-normal: ${foreground || "#e6eaf0"};`);
       vars.push(`  --shadow: 0 18px 50px rgba(0, 0, 0, 0.3);`);
       vars.push(`  --link-color: ${accent || "#6b8cce"};`);
       vars.push(`  --obs-canvas: ${background || "#0f1322"};`);
@@ -213,6 +210,7 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --danger: ${palette.red || "#b42318"};`);
       vars.push(`  --danger-bg: ${(palette.red || "#b42318") + "22"};`);
       vars.push(`  --code-bg: ${panel || "#eef3f8"};`);
+      vars.push(`  --code-normal: ${foreground || "#1a2332"};`);
       vars.push(`  --shadow: 0 18px 50px rgba(40, 33, 23, 0.09);`);
       vars.push(`  --link-color: ${accent || "#2a5ca8"};`);
       vars.push(`  --obs-canvas: ${background || "#f5f7fa"};`);

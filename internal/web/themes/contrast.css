@@ -12,6 +12,7 @@ body.theme-light {
   --danger: #b00020;
   --danger-bg: rgba(176, 0, 32, 0.06);
   --code-bg: #ebeaf2;
+  --code-normal: #17151f;
   --shadow: 0 12px 36px rgba(10, 10, 18, 0.12);
   --obs-canvas: #ffffff;
   --obs-sidebar: #f0f0f5;
@@ -40,6 +41,7 @@ body.theme-dark {
   --danger: #ff6b7a;
   --danger-bg: rgba(255, 107, 122, 0.1);
   --code-bg: #161624;
+  --code-normal: #f4f1ff;
   --shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
   --obs-canvas: #05050a;
   --obs-sidebar: #111118;

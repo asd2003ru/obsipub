@@ -70,6 +70,22 @@ test("accepts legacy Base16/Base24 palette keys", () => {
   assert.ok(css.includes("--accent: #89b4fa"));
 });
 
+test("generates one CSS file from separate light and dark schemes", () => {
+  const light = parseTaintedYAML(`palette:\n  white: "#ffffff"\n  black: "#202020"\n  blue: "#0055aa"`);
+  const dark = parseTaintedYAML(`palette:\n  black: "#101018"\n  white: "#eeeeff"\n  blue: "#88aaff"`);
+  const css = generateThemeCSS({ light, dark });
+  assert.match(css, /body\.theme-light[\s\S]*--bg: #ffffff/);
+  assert.match(css, /body\.theme-dark[\s\S]*--bg: #101018/);
+  assert.ok(css.includes("--code-normal: #eeeeff"));
+});
+
+test("uses light and dark UI keys from a single Tinted8 scheme", () => {
+  const parsed = parseTaintedYAML(`ui:\n  chrome.background.light: "#ffffff"\n  chrome.background.dark: "#111111"\n  chrome.foreground.light: "#222222"\n  chrome.foreground.dark: "#eeeeee"`);
+  const css = generateThemeCSS(parsed);
+  assert.match(css, /body\.theme-light[\s\S]*--bg: #ffffff[\s\S]*--text: #222222/);
+  assert.match(css, /body\.theme-dark[\s\S]*--bg: #111111[\s\S]*--text: #eeeeee/);
+});
+
 test("sanitizeSchemeId prevents traversal", () => {
   assert.equal(sanitizeSchemeId("tinted8-nord"), "tinted8-nord");
   assert.equal(sanitizeSchemeId("bad/name"), "bad-name");

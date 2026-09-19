@@ -1277,39 +1277,47 @@ class ObsipubSettingTab extends PluginSettingTab {
     const outputDir = ".obsidian/obsipub/themes";
     const adapter = this.plugin.app.vault.adapter;
 
-    let schemeInputValue = "";
+    let lightSchemeInputValue = "";
+    let darkSchemeInputValue = "";
     const convertSetting = new Setting(tintedSection).setName(t("tintedConvertBtn"));
     convertSetting.addText((text) => {
-      text.setPlaceholder("tinted8-nord or tinty apply tinted8-nord");
+      text.setPlaceholder("light: tinted8-catppuccin-latte");
       text.inputEl.style.minWidth = "14em";
-      text.onChange((value) => { schemeInputValue = value.trim(); });
+      text.onChange((value) => { lightSchemeInputValue = value.trim(); });
+    });
+    convertSetting.addText((text) => {
+      text.setPlaceholder("dark: tinted8-catppuccin-mocha");
+      text.inputEl.style.minWidth = "14em";
+      text.onChange((value) => { darkSchemeInputValue = value.trim(); });
     });
     convertSetting.addButton((button) => button.setButtonText(t("tintedConvertBtn")).setCta().onClick(async () => {
-      const commandMatch = schemeInputValue.match(/^(?:tinty\s+apply\s+)?([^\s]+)$/i);
-      const rawId = commandMatch?.[1] || "";
-      if (!rawId) {
+      if (!lightSchemeInputValue && !darkSchemeInputValue) {
         new Notice(t("tintedNoScheme"));
         return;
       }
       try {
-        const safeId = sanitizeSchemeId(rawId);
-        if (!safeId || safeId === "theme") {
-          new Notice(t("tintedInvalidId"));
-          return;
+        const extractId = (value: string): string => value.match(/^(?:tinty\s+apply\s+)?([^\s]+)$/i)?.[1] || "";
+        const fetchScheme = async (value: string) => {
+          const safeId = sanitizeSchemeId(extractId(value));
+          if (!safeId || safeId === "theme") throw new Error(t("tintedInvalidId"));
+          const familyMatch = safeId.match(/^(tinted8|base16|base24)-(.*)$/);
+          const fetchUrl = familyMatch
+            ? `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${familyMatch[1]}/${familyMatch[2]}.yaml`
+            : `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId}.yaml`;
+          const response = await requestUrl({ url: fetchUrl, throw: false });
+          if (response.status >= 400) throw new Error(`${t("tintedFetchFailed")} (${response.status})`);
+          return { safeId, parsed: parseTaintedYAML(response.text) };
+        };
+        if (!lightSchemeInputValue || !darkSchemeInputValue) {
+          const useForBoth = isRussian()
+            ? "Указана только одна схема. Использовать её для светлого и тёмного режимов?"
+            : "Only one scheme was provided. Use it for both light and dark modes?";
+          if (!confirm(useForBoth)) return;
         }
-        // For IDs like tinted8-nord, split family/name
-        const familyMatch = safeId.match(/^(tinted8|base16|base24)-(.*)$/);
-        const fetchUrl = familyMatch
-          ? `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${familyMatch[1]}/${familyMatch[2]}.yaml`
-          : `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId}.yaml`;
-        const response = await requestUrl({ url: fetchUrl, throw: false });
-        if (response.status >= 400) {
-          new Notice(t("tintedFetchFailed") + " (" + response.status + ")");
-          return;
-        }
-        const yamlText = response.text;
-        const parsed = parseTaintedYAML(yamlText);
-        const cssContent = generateThemeCSS(parsed);
+        const light = await fetchScheme(lightSchemeInputValue || darkSchemeInputValue);
+        const dark = await fetchScheme(darkSchemeInputValue || lightSchemeInputValue);
+        const safeId = light.safeId === dark.safeId ? light.safeId : `${light.safeId}-${dark.safeId}`;
+        const cssContent = generateThemeCSS({ light: light.parsed, dark: dark.parsed });
         const themeDirPath = outputDir + "/" + safeId;
         const themeCssPath = themeDirPath + "/theme.css";
         const manifestPath = themeDirPath + "/manifest.json";
@@ -1324,7 +1332,7 @@ class ObsipubSettingTab extends PluginSettingTab {
         }
         await adapter.writeBinary(themeCssPath, new TextEncoder().encode(cssContent));
         const manifestObj = {
-          name: parsed.name || safeId,
+          name: light.parsed.name || dark.parsed.name || safeId,
           source: safeId,
           entry: "theme.css"
         };

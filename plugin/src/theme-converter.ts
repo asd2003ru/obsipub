@@ -22,6 +22,13 @@ function isSafeColorValue(value: string): boolean {
   return /^#[0-9a-f]{3,8}$/i.test(value) || /^rgb\([^)]+\)$/i.test(value) || /^rgba\([^)]+\)$/i.test(value) || /^(?:transparent|black|white)$/i.test(value);
 }
 
+function normalizeColor(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const color = value.trim().replace(/^['"]|['"]$/g, "");
+  if (/^[0-9a-f]{6,8}$/i.test(color)) return `#${color}`;
+  return isSafeColorValue(color) ? color : undefined;
+}
+
 export function parseTaintedYAML(content: string): {
   system?: string;
   name?: string;
@@ -75,7 +82,15 @@ export function parseTaintedYAML(content: string): {
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
-      if (currentSection === "scheme") {
+      const legacyNames: Record<string, string> = {
+        base00: "black", base01: "black_dim", base02: "gray_dark", base03: "gray",
+        base04: "gray_light", base05: "white", base06: "white_bright", base07: "white",
+        base08: "red", base09: "orange", base0a: "yellow", base0b: "green",
+        base0c: "cyan", base0d: "blue", base0e: "magenta", base0f: "brown",
+      };
+      if (legacyNames[key.toLowerCase()]) {
+        result.palette[legacyNames[key.toLowerCase()]] = value;
+      } else if (currentSection === "scheme") {
         if (currentSubKey && value === "") {
           // nested object start handled above
           continue;
@@ -110,6 +125,36 @@ export function generateThemeCSS(parsed: any): string {
   const syntax = parsed.syntax || {};
   const ui = parsed.ui || {};
 
+  // Tinted8 defines the semantic UI colors separately from its terminal palette.
+  // Prefer these values when present (for example chrome.background.dark and
+  // highlight.text.foreground), then fall back to the eight-color palette.
+  const uiColor = (...keys: string[]): string | undefined => {
+    for (const key of keys) {
+      const value = normalizeColor(ui[key]);
+      if (value) return value;
+    }
+    return undefined;
+  };
+  const paletteAliases: Record<string, string[]> = {
+    black: ["black", "base00"], gray: ["gray", "base03"], white: ["white", "base07"],
+    red: ["red", "base08"], orange: ["orange", "base09"], yellow: ["yellow", "base0A"],
+    green: ["green", "base0B"], cyan: ["cyan", "base0C"], blue: ["blue", "base0D"],
+    magenta: ["magenta", "base0E"], brown: ["brown", "base0F"],
+  };
+  const paletteColor = (key: string, fallback?: string): string | undefined => {
+    for (const alias of paletteAliases[key] || [key]) {
+      const value = normalizeColor(palette[alias]);
+      if (value) return value;
+    }
+    return fallback;
+  };
+  const background = uiColor("background.normal", "chrome.background.dark", "chrome.background") || paletteColor("black");
+  const foreground = uiColor("foreground.normal", "highlight.text.foreground", "chrome.foreground.dark") || paletteColor("white");
+  const panel = uiColor("background.dim", "chrome.background", "chrome.background.dark") || background;
+  const muted = uiColor("foreground.dim", "foreground.normal") || paletteColor("gray");
+  const border = uiColor("border.normal", "chrome.border", "highlight.background") || paletteColor("gray");
+  const accent = uiColor("accent.normal", "highlight.text.foreground") || paletteColor("blue") || paletteColor("cyan");
+
   const lines: string[] = ["/* Converted from Tinted theme — review before publishing. */"];
 
   const lightVars: string[] = [];
@@ -131,25 +176,25 @@ export function generateThemeCSS(parsed: any): string {
   const generateModeVars = (mode: "light" | "dark") => {
     const vars: string[] = [];
     if (mode === "dark") {
-      vars.push(`  --bg: ${palette.black || "#0f1322"};`);
-      vars.push(`  --panel: ${palette.black ? palette.black + "ee" : "#161b2e"};`);
-      vars.push(`  --text: ${palette.white || "#e6eaf0"};`);
-      vars.push(`  --muted: ${palette.gray || "#9aa3b8"};`);
-      vars.push(`  --border: ${palette.gray ? palette.gray + "66" : "#2a3050"};`);
-      vars.push(`  --accent: ${palette.blue || palette.cyan || "#6b8cce"};`);
-      vars.push(`  --accent-soft: ${(palette.blue || palette.cyan || "#6b8cce") + "22"};`);
+      vars.push(`  --bg: ${background || "#0f1322"};`);
+      vars.push(`  --panel: ${panel || "#161b2e"};`);
+      vars.push(`  --text: ${foreground || "#e6eaf0"};`);
+      vars.push(`  --muted: ${muted || "#9aa3b8"};`);
+      vars.push(`  --border: ${border || "#2a3050"};`);
+      vars.push(`  --accent: ${accent || "#6b8cce"};`);
+      vars.push(`  --accent-soft: ${(accent || "#6b8cce") + "22"};`);
       vars.push(`  --danger: ${palette.red || "#ff6b6b"};`);
       vars.push(`  --danger-bg: ${(palette.red || "#ff6b6b") + "22"};`);
-      vars.push(`  --code-bg: ${palette.black ? palette.black + "ee" : "#1a2035"};`);
+      vars.push(`  --code-bg: ${panel || "#1a2035"};`);
       vars.push(`  --shadow: 0 18px 50px rgba(0, 0, 0, 0.3);`);
-      vars.push(`  --link-color: ${palette.blue || palette.cyan || "#6b8cce"};`);
-      vars.push(`  --obs-canvas: ${palette.black || "#0f1322"};`);
-      vars.push(`  --obs-sidebar: ${palette.black ? palette.black + "ee" : "#161b2e"};`);
-      vars.push(`  --obs-topbar: ${palette.black ? palette.black + "dd" : "#1c2338"};`);
-      vars.push(`  --obs-border: ${palette.gray ? palette.gray + "66" : "#2a3050"};`);
-      vars.push(`  --obs-text: ${palette.white || "#e6eaf0"};`);
-      vars.push(`  --obs-muted: ${palette.gray || "#9aa3b8"};`);
-      vars.push(`  --obs-code-bg: ${palette.black ? palette.black + "ee" : "#1a2035"};`);
+      vars.push(`  --link-color: ${accent || "#6b8cce"};`);
+      vars.push(`  --obs-canvas: ${background || "#0f1322"};`);
+      vars.push(`  --obs-sidebar: ${panel || "#161b2e"};`);
+      vars.push(`  --obs-topbar: ${panel || "#1c2338"};`);
+      vars.push(`  --obs-border: ${border || "#2a3050"};`);
+      vars.push(`  --obs-text: ${foreground || "#e6eaf0"};`);
+      vars.push(`  --obs-muted: ${muted || "#9aa3b8"};`);
+      vars.push(`  --obs-code-bg: ${panel || "#1a2035"};`);
       vars.push(`  --callout-color-note: ${palette.blue || palette.cyan || "#6b8cce"};`);
       vars.push(`  --callout-color-tip: ${palette.green || "#6bcb77"};`);
       vars.push(`  --callout-color-warning: ${palette.yellow || palette.orange || "#ffd166"};`);
@@ -157,25 +202,25 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --callout-color-question: ${palette.magenta || "#c08bc8"};`);
       vars.push(`  --callout-color-quote: ${palette.cyan || palette.gray || "#88c0d0"};`);
     } else {
-      vars.push(`  --bg: ${palette.white || palette.white_dim || "#f5f7fa"};`);
-      vars.push(`  --panel: ${palette.white ? (palette.white + "ff") : (palette.white_dim ? (palette.white_dim + "ff") : "#ffffff")};`);
-      vars.push(`  --text: ${palette.black || "#1a2332"};`);
-      vars.push(`  --muted: ${palette.gray || "#5a6b7b"};`);
-      vars.push(`  --border: ${palette.gray ? palette.gray + "66" : "#c8d1e0"};`);
-      vars.push(`  --accent: ${palette.blue || palette.cyan || "#2a5ca8"};`);
-      vars.push(`  --accent-soft: ${(palette.blue || palette.cyan || "#2a5ca8") + "22"};`);
+      vars.push(`  --bg: ${background || "#f5f7fa"};`);
+      vars.push(`  --panel: ${panel || "#ffffff"};`);
+      vars.push(`  --text: ${foreground || "#1a2332"};`);
+      vars.push(`  --muted: ${muted || "#5a6b7b"};`);
+      vars.push(`  --border: ${border || "#c8d1e0"};`);
+      vars.push(`  --accent: ${accent || "#2a5ca8"};`);
+      vars.push(`  --accent-soft: ${(accent || "#2a5ca8") + "22"};`);
       vars.push(`  --danger: ${palette.red || "#b42318"};`);
       vars.push(`  --danger-bg: ${(palette.red || "#b42318") + "22"};`);
-      vars.push(`  --code-bg: ${palette.white ? (palette.white + "ee") : (palette.white_dim ? (palette.white_dim + "ee") : "#eef3f8")};`);
+      vars.push(`  --code-bg: ${panel || "#eef3f8"};`);
       vars.push(`  --shadow: 0 18px 50px rgba(40, 33, 23, 0.09);`);
-      vars.push(`  --link-color: ${palette.blue || palette.cyan || "#2a5ca8"};`);
-      vars.push(`  --obs-canvas: ${palette.white || palette.white_dim || "#f5f7fa"};`);
-      vars.push(`  --obs-sidebar: ${palette.white ? (palette.white + "ff") : (palette.white_dim ? (palette.white_dim + "ff") : "#ffffff")};`);
-      vars.push(`  --obs-topbar: ${palette.white ? (palette.white + "ee") : (palette.white_dim ? (palette.white_dim + "ee") : "#eef3f8")};`);
-      vars.push(`  --obs-border: ${palette.gray ? palette.gray + "66" : "#c8d1e0"};`);
-      vars.push(`  --obs-text: ${palette.black || "#1a2332"};`);
-      vars.push(`  --obs-muted: ${palette.gray || "#5a6b7b"};`);
-      vars.push(`  --obs-code-bg: ${palette.white ? (palette.white + "ee") : (palette.white_dim ? (palette.white_dim + "ee") : "#eef3f8")};`);
+      vars.push(`  --link-color: ${accent || "#2a5ca8"};`);
+      vars.push(`  --obs-canvas: ${background || "#f5f7fa"};`);
+      vars.push(`  --obs-sidebar: ${panel || "#ffffff"};`);
+      vars.push(`  --obs-topbar: ${panel || "#eef3f8"};`);
+      vars.push(`  --obs-border: ${border || "#c8d1e0"};`);
+      vars.push(`  --obs-text: ${foreground || "#1a2332"};`);
+      vars.push(`  --obs-muted: ${muted || "#5a6b7b"};`);
+      vars.push(`  --obs-code-bg: ${panel || "#eef3f8"};`);
       vars.push(`  --callout-color-note: ${palette.blue || palette.cyan || "#3b82f6"};`);
       vars.push(`  --callout-color-tip: ${palette.green || "#16a34a"};`);
       vars.push(`  --callout-color-warning: ${palette.yellow || palette.orange || "#d97706"};`);

@@ -42,6 +42,34 @@ palette:
   assert.ok(!css.includes("url("));
 });
 
+test("uses Tinted8 semantic UI colors instead of only terminal palette", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "Catppuccin Mocha"
+  system: "tinted8"
+  variant: "dark"
+palette:
+  black: "#1e1e2e"
+  white: "#cdd6f4"
+  blue: "#89b4fa"
+ui:
+  chrome.background.dark: "#181825"
+  highlight.text.foreground: "#f5c2e7"
+  border.normal: "#313244"
+`);
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--bg: #181825"));
+  assert.ok(css.includes("--text: #f5c2e7"));
+  assert.ok(css.includes("--border: #313244"));
+});
+
+test("accepts legacy Base16/Base24 palette keys", () => {
+  const parsed = parseTaintedYAML(`scheme:\n  name: "Legacy"\nbase00: "1e1e2e"\nbase05: "cdd6f4"\nbase0D: "89b4fa"\n`);
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--bg: #1e1e2e"));
+  assert.ok(css.includes("--text: #cdd6f4"));
+  assert.ok(css.includes("--accent: #89b4fa"));
+});
+
 test("sanitizeSchemeId prevents traversal", () => {
   assert.equal(sanitizeSchemeId("tinted8-nord"), "tinted8-nord");
   assert.equal(sanitizeSchemeId("bad/name"), "bad-name");

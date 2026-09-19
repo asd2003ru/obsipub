@@ -1269,7 +1269,7 @@ class ObsipubSettingTab extends PluginSettingTab {
     const inputRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
     let schemeInputValue = "";
     const schemeInput = inputRow.createEl("input", { type: "text" }) as HTMLInputElement;
-    schemeInput.placeholder = "tinted8-nord or base16-default";
+    schemeInput.placeholder = "tinted8-nord, base16-default or base24-default";
     schemeInput.style.flex = "1 1 auto";
     schemeInput.style.fontSize = "var(--font-ui-smaller)";
     schemeInput.addEventListener("input", () => { schemeInputValue = schemeInput.value.trim(); });
@@ -1290,7 +1290,7 @@ class ObsipubSettingTab extends PluginSettingTab {
         }
         const url = `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId.replace(/-/g, "/")}.yaml`;
         // For IDs like tinted8-nord, split family/name
-        const familyMatch = safeId.match(/^(tinted8|base16)-(.*)$/);
+        const familyMatch = safeId.match(/^(tinted8|base16|base24)-(.*)$/);
         const fetchUrl = familyMatch
           ? `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${familyMatch[1]}/${familyMatch[2]}.yaml`
           : `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId}.yaml`;

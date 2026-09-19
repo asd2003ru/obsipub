@@ -93,7 +93,7 @@ function t(key: string): string {
     "paginationPage": "Страница {page} из {total}",
     "publishCollecting": "Сбор зависимостей заметок...",
     "publishPublishedFiles": "Опубликовано файлов",
-    "settingsTitle": "Издатель Obsipub",
+    "settingsTitle": "Сервер Obsipub",
     "serverUrlName": "URL сервера",
     "serverUrlDesc": "Базовый URL obsipub; публикация отправляет POST на /api/publish.",
     "serverUrlPlaceholder": "http://127.0.0.1:8088",
@@ -133,9 +133,11 @@ function t(key: string): string {
     "themeUnavailable": "Выбранная тема недоступна.",
     "tintedConverterName": "Конвертер Tinted",
     "tintedConverterDesc": "Конвертировать схему Tinted из GitHub в тему .obsidian/obsipub/themes/.",
+    "tintedGalleryLink": "Галерея Tinted",
+    "tintedDeleteLabel": "Удалить тему",
     "tintedConvertBtn": "Конвертировать",
     "tintedConverted": "Тема сконвертирована: {id}",
-    "tintedDeleteBtn": "Удалить выбранную тему",
+    "tintedDeleteBtn": "Удалить",
     "tintedDeleted": "Тема удалена: {id}",
     "tintedNoScheme": "Введите ID схемы.",
     "tintedInvalidId": "Некорректный ID схемы.",
@@ -205,7 +207,7 @@ function t(key: string): string {
     "paginationPage": "Page {page} of {total}",
     "publishCollecting": "Collecting note dependencies...",
     "publishPublishedFiles": "Published vault files",
-    "settingsTitle": "Obsipub Publisher",
+    "settingsTitle": "Obsipub Server",
     "serverUrlName": "Server URL",
     "serverUrlDesc": "Base URL of obsipub; publishing POSTs to /api/publish.",
     "serverUrlPlaceholder": "http://127.0.0.1:8088",
@@ -245,9 +247,11 @@ function t(key: string): string {
     "themeUnavailable": "Selected theme is unavailable.",
     "tintedConverterName": "Tinted converter",
     "tintedConverterDesc": "Convert a Tinted scheme from GitHub to .obsidian/obsipub/themes/.",
+    "tintedGalleryLink": "Tinted gallery",
+    "tintedDeleteLabel": "Delete theme",
     "tintedConvertBtn": "Convert",
     "tintedConverted": "Theme converted: {id}",
-    "tintedDeleteBtn": "Delete selected/user theme",
+    "tintedDeleteBtn": "Delete",
     "tintedDeleted": "Theme deleted: {id}",
     "tintedNoScheme": "Enter a scheme ID.",
     "tintedInvalidId": "Invalid scheme ID.",
@@ -1262,6 +1266,10 @@ class ObsipubSettingTab extends PluginSettingTab {
     const tintedSection = containerEl.createDiv({ cls: "obsipub-tinted-section" });
     tintedSection.createEl("h3", { text: t("tintedConverterName"), cls: "obsipub-tinted-header" });
     tintedSection.createEl("p", { text: t("tintedConverterDesc"), cls: "obsipub-tinted-desc" });
+    const galleryLink = tintedSection.createEl("a", { text: t("tintedGalleryLink") });
+    galleryLink.href = "https://tinted-theming.github.io/tinted-gallery/";
+    galleryLink.target = "_blank";
+    galleryLink.rel = "noopener noreferrer";
 
     const outputDir = ".obsidian/obsipub/themes";
     const adapter = this.plugin.app.vault.adapter;
@@ -1277,7 +1285,8 @@ class ObsipubSettingTab extends PluginSettingTab {
     const convertBtnRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
     const convertBtn = convertBtnRow.createEl("button", { text: t("tintedConvertBtn"), cls: "mod-cta" });
     convertBtn.addEventListener("click", async () => {
-      const rawId = schemeInputValue;
+      const commandMatch = schemeInputValue.match(/^(?:tinty\s+apply\s+)?([^\s]+)$/i);
+      const rawId = commandMatch?.[1] || "";
       if (!rawId) {
         new Notice(t("tintedNoScheme"));
         return;
@@ -1288,7 +1297,6 @@ class ObsipubSettingTab extends PluginSettingTab {
           new Notice(t("tintedInvalidId"));
           return;
         }
-        const url = `https://raw.githubusercontent.com/tinted-theming/schemes/spec-0.11/${safeId.replace(/-/g, "/")}.yaml`;
         // For IDs like tinted8-nord, split family/name
         const familyMatch = safeId.match(/^(tinted8|base16|base24)-(.*)$/);
         const fetchUrl = familyMatch
@@ -1330,46 +1338,56 @@ class ObsipubSettingTab extends PluginSettingTab {
       }
     });
 
-    const deleteBtnRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
-    const deleteBtn = deleteBtnRow.createEl("button", { text: t("tintedDeleteBtn"), cls: "mod-warning" });
-    deleteBtn.addEventListener("click", async () => {
+    const deleteSetting = new Setting(tintedSection).setName(t("tintedDeleteLabel"));
+    let deleteSelect: HTMLSelectElement | null = null;
+    const refreshDeleteOptions = async () => {
       try {
         const themesDir = ".obsidian/obsipub/themes";
-        if (!(await adapter.exists(themesDir))) {
-          new Notice(t("tintedNoThemes"));
-          return;
+        const userThemes: string[] = [];
+        if (await adapter.exists(themesDir)) {
+          const listing = await adapter.list(themesDir) as { files: string[]; folders: string[] };
+          for (const folderPath of listing.folders || []) {
+            const name = folderPath.slice(folderPath.lastIndexOf("/") + 1);
+            if (/^[^/\\\x00-\x1f]+$/.test(name)) userThemes.push(name);
+          }
         }
-        const listing = await adapter.list(themesDir) as { files: string[]; folders: string[] };
-        const userThemes = listing.folders.filter((folder: string) => {
-          const folderName = folder.slice(folder.lastIndexOf("/") + 1);
-          return /^[^/\\\x00-\x1f]+$/.test(folderName);
-        });
+        if (!deleteSelect) return;
+        deleteSelect.empty();
         if (userThemes.length === 0) {
+          deleteSelect.createEl("option", { value: "", text: t("tintedNoThemes") });
+          deleteSelect.disabled = true;
+          return;
+        }
+        deleteSelect.disabled = false;
+        for (const name of userThemes.sort()) deleteSelect.createEl("option", { value: name, text: name });
+      } catch (e) {
+        console.error("Tinted delete error:", e);
+        new Notice(t("tintedConvertFailed") + " — " + (e instanceof Error ? e.message : String(e)));
+      }
+    };
+    deleteSetting.addDropdown((dropdown) => {
+      deleteSelect = dropdown.selectEl;
+      dropdown.selectEl.style.minWidth = "14em";
+      void refreshDeleteOptions();
+    });
+    deleteSetting.addButton((button) => button
+      .setButtonText(t("tintedDeleteBtn"))
+      .setWarning()
+      .onClick(async () => {
+        const selected = deleteSelect?.value || "";
+        if (!selected) {
           new Notice(t("tintedNoThemes"));
           return;
         }
-        const deleteSelect = deleteBtnRow.createEl("select") as HTMLSelectElement;
-        deleteSelect.style.flex = "1 1 auto";
-        deleteSelect.style.fontSize = "var(--font-ui-smaller)";
-        for (const folderPath of userThemes.sort()) {
-          const name = folderPath.slice(folderPath.lastIndexOf("/") + 1);
-          deleteSelect.createEl("option", { value: name, text: name });
-        }
-        const confirmBtn = deleteBtnRow.createEl("button", { text: t("tintedConfirmDelete"), cls: "mod-warning" });
-        confirmBtn.addEventListener("click", async () => {
-          const selected = deleteSelect.value;
-          if (!selected) return;
-          const confirmMsg = isRussian()
-            ? `Удалить тему ${selected} и все её файлы? Это нельзя отменить.`
-            : `Delete theme ${selected} and all its files? This cannot be undone.`;
-          if (!confirm(confirmMsg)) return;
-          const themeDirPath = themesDir + "/" + selected;
-          // Recursively delete all nested files and folders safely.
+        const confirmMsg = isRussian()
+          ? `Удалить тему ${selected} и все её файлы? Это нельзя отменить.`
+          : `Delete theme ${selected} and all its files? This cannot be undone.`;
+        if (!confirm(confirmMsg)) return;
+        try {
+          const themeDirPath = outputDir + "/" + selected;
           const deleteRecursive = async (dirPath: string) => {
             const listing = await adapter.list(dirPath) as { files: string[]; folders: string[] };
-            for (const filePath of listing.files || []) {
-              await adapter.remove(filePath);
-            }
+            for (const filePath of listing.files || []) await adapter.remove(filePath);
             for (const subFolder of listing.folders || []) {
               await deleteRecursive(subFolder);
               await adapter.rmdir(subFolder, false);
@@ -1378,14 +1396,14 @@ class ObsipubSettingTab extends PluginSettingTab {
           await deleteRecursive(themeDirPath);
           await adapter.rmdir(themeDirPath, false);
           new Notice(t("tintedDeleted").replace("{id}", selected));
-          deleteSelect.remove();
-          confirmBtn.remove();
-        });
-      } catch (e) {
-        console.error("Tinted delete error:", e);
-        new Notice("Delete failed — " + (e instanceof Error ? e.message : String(e)));
-      }
-    });
+          await this.plugin.discoverCustomThemes();
+          await refreshDeleteOptions();
+        } catch (e) {
+          console.error("Tinted delete error:", e);
+          new Notice(t("tintedConvertFailed") + " — " + (e instanceof Error ? e.message : String(e)));
+        }
+      }));
+    void refreshDeleteOptions();
   }
 }
 

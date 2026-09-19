@@ -22,12 +22,12 @@ body.theme-light {
   --obs-muted: #4c566a;
   --obs-code-bg: #d8dee9;
   --link-color: #5e81ac;
-  --callout-color-note: #81a1c1;
-  --callout-color-tip: #a3be8c;
-  --callout-color-warning: #ebcb8b;
-  --callout-color-danger: #bf616a;
-  --callout-color-question: #b48ead;
-  --callout-color-quote: #4c566a;
+  --obs-callout-color-note: #81a1c1;
+  --obs-callout-color-tip: #a3be8c;
+  --obs-callout-color-warning: #ebcb8b;
+  --obs-callout-color-danger: #bf616a;
+  --obs-callout-color-question: #b48ead;
+  --obs-callout-color-quote: #4c566a;
 }
 
 body.theme-dark {
@@ -50,12 +50,12 @@ body.theme-dark {
   --obs-muted: #d8dee9;
   --obs-code-bg: #3b4252;
   --link-color: #88c0d0;
-  --callout-color-note: #81a1c1;
-  --callout-color-tip: #a3be8c;
-  --callout-color-warning: #ebcb8b;
-  --callout-color-danger: #bf616a;
-  --callout-color-question: #b48ead;
-  --callout-color-quote: #d8dee9;
+  --obs-callout-color-note: #81a1c1;
+  --obs-callout-color-tip: #a3be8c;
+  --obs-callout-color-warning: #ebcb8b;
+  --obs-callout-color-danger: #bf616a;
+  --obs-callout-color-question: #b48ead;
+  --obs-callout-color-quote: #d8dee9;
 }
 
 /* Nord typography adjustments */

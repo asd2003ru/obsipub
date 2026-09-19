@@ -1865,13 +1865,13 @@ body.theme-light {
    ships semantic accents (Prizm: --color-*-text, Minimal: --ax*, etc.)
    and fall back to a neutral palette otherwise. */
 .markdown-rendered .callout {
-  --callout-color-note: var(--color-blue-text, var(--link-color, var(--accent, #3b82f6)));
-  --callout-color-tip: var(--color-green-text, var(--color-cyan-text, var(--color-mint-text, #16a34a)));
-  --callout-color-success: var(--color-green-text, #16a34a);
-  --callout-color-warning: var(--color-orange-text, var(--color-yellow-text, #d97706));
-  --callout-color-danger: var(--color-red-text, #dc2626);
-  --callout-color-question: var(--color-purple-text, var(--color-pink-text, #7c3aed));
-  --callout-color-quote: var(--color-grey-text, var(--text-muted, #7c3aed));
+  --callout-color-note: var(--obs-callout-color-note, var(--color-blue-text, var(--link-color, var(--accent, #3b82f6))));
+  --callout-color-tip: var(--obs-callout-color-tip, var(--color-green-text, var(--color-cyan-text, var(--color-mint-text, #16a34a))));
+  --callout-color-success: var(--obs-callout-color-success, var(--color-green-text, #16a34a));
+  --callout-color-warning: var(--obs-callout-color-warning, var(--color-orange-text, var(--color-yellow-text, #d97706)));
+  --callout-color-danger: var(--obs-callout-color-danger, var(--color-red-text, #dc2626));
+  --callout-color-question: var(--obs-callout-color-question, var(--color-purple-text, var(--color-pink-text, #7c3aed)));
+  --callout-color-quote: var(--obs-callout-color-quote, var(--color-grey-text, var(--text-muted, #7c3aed)));
   --callout-color: var(--callout-color-note);
   margin: 1em 0;
   overflow: hidden;

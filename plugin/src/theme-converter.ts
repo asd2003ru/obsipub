@@ -195,12 +195,13 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-text: ${foreground || "#e6eaf0"};`);
       vars.push(`  --obs-muted: ${muted || "#9aa3b8"};`);
       vars.push(`  --obs-code-bg: ${panel || "#1a2035"};`);
-      vars.push(`  --callout-color-note: ${palette.blue || palette.cyan || "#6b8cce"};`);
-      vars.push(`  --callout-color-tip: ${palette.green || "#6bcb77"};`);
-      vars.push(`  --callout-color-warning: ${palette.yellow || palette.orange || "#ffd166"};`);
-      vars.push(`  --callout-color-danger: ${palette.red || "#ff6b6b"};`);
-      vars.push(`  --callout-color-question: ${palette.magenta || "#c08bc8"};`);
-      vars.push(`  --callout-color-quote: ${palette.cyan || palette.gray || "#88c0d0"};`);
+      vars.push(`  --obs-callout-color-note: ${palette.blue || palette.cyan || "#6b8cce"};`);
+      vars.push(`  --obs-callout-color-tip: ${palette.green || "#6bcb77"};`);
+      vars.push(`  --obs-callout-color-success: ${palette.green || "#6bcb77"};`);
+      vars.push(`  --obs-callout-color-warning: ${palette.yellow || palette.orange || "#ffd166"};`);
+      vars.push(`  --obs-callout-color-danger: ${palette.red || "#ff6b6b"};`);
+      vars.push(`  --obs-callout-color-question: ${palette.magenta || "#c08bc8"};`);
+      vars.push(`  --obs-callout-color-quote: ${palette.cyan || palette.gray || "#88c0d0"};`);
     } else {
       vars.push(`  --bg: ${background || "#f5f7fa"};`);
       vars.push(`  --panel: ${panel || "#ffffff"};`);
@@ -221,12 +222,13 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-text: ${foreground || "#1a2332"};`);
       vars.push(`  --obs-muted: ${muted || "#5a6b7b"};`);
       vars.push(`  --obs-code-bg: ${panel || "#eef3f8"};`);
-      vars.push(`  --callout-color-note: ${palette.blue || palette.cyan || "#3b82f6"};`);
-      vars.push(`  --callout-color-tip: ${palette.green || "#16a34a"};`);
-      vars.push(`  --callout-color-warning: ${palette.yellow || palette.orange || "#d97706"};`);
-      vars.push(`  --callout-color-danger: ${palette.red || "#dc2626"};`);
-      vars.push(`  --callout-color-question: ${palette.magenta || "#7c3aed"};`);
-      vars.push(`  --callout-color-quote: ${palette.cyan || palette.gray || "#0891b2"};`);
+      vars.push(`  --obs-callout-color-note: ${palette.blue || palette.cyan || "#3b82f6"};`);
+      vars.push(`  --obs-callout-color-tip: ${palette.green || "#16a34a"};`);
+      vars.push(`  --obs-callout-color-success: ${palette.green || "#16a34a"};`);
+      vars.push(`  --obs-callout-color-warning: ${palette.yellow || palette.orange || "#d97706"};`);
+      vars.push(`  --obs-callout-color-danger: ${palette.red || "#dc2626"};`);
+      vars.push(`  --obs-callout-color-question: ${palette.magenta || "#7c3aed"};`);
+      vars.push(`  --obs-callout-color-quote: ${palette.cyan || palette.gray || "#0891b2"};`);
     }
     return vars.join("\n");
   };

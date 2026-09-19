@@ -132,8 +132,9 @@ function t(key: string): string {
     "themePreviewSample": "Пример оформления (не точный предпросмотр публикации)",
     "themeUnavailable": "Выбранная тема недоступна.",
     "tintedConverterName": "Конвертер Tinted",
-    "tintedConverterDesc": "Конвертировать схему Tinted из GitHub в тему .obsidian/obsipub/themes/.",
-    "tintedGalleryLink": "Галерея Tinted",
+    "tintedConverterDescBefore": "Конвертировать схему ",
+    "tintedConverterDescAfter": " в тему .obsidian/obsipub/themes/.",
+    "tintedGalleryLink": "Tinted из GitHub",
     "tintedDeleteLabel": "Удалить тему",
     "tintedConvertBtn": "Конвертировать",
     "tintedConverted": "Тема сконвертирована: {id}",
@@ -246,8 +247,9 @@ function t(key: string): string {
     "themePreviewSample": "Style sample (not an exact publication preview)",
     "themeUnavailable": "Selected theme is unavailable.",
     "tintedConverterName": "Tinted converter",
-    "tintedConverterDesc": "Convert a Tinted scheme from GitHub to .obsidian/obsipub/themes/.",
-    "tintedGalleryLink": "Tinted gallery",
+    "tintedConverterDescBefore": "Convert the ",
+    "tintedConverterDescAfter": " scheme to .obsidian/obsipub/themes/.",
+    "tintedGalleryLink": "Tinted scheme from GitHub",
     "tintedDeleteLabel": "Delete theme",
     "tintedConvertBtn": "Convert",
     "tintedConverted": "Theme converted: {id}",
@@ -1265,26 +1267,24 @@ class ObsipubSettingTab extends PluginSettingTab {
     // Tinted converter settings
     const tintedSection = containerEl.createDiv({ cls: "obsipub-tinted-section" });
     tintedSection.createEl("h3", { text: t("tintedConverterName"), cls: "obsipub-tinted-header" });
-    tintedSection.createEl("p", { text: t("tintedConverterDesc"), cls: "obsipub-tinted-desc" });
-    const galleryLink = tintedSection.createEl("a", { text: t("tintedGalleryLink") });
+    const tintedDesc = tintedSection.createEl("p", { text: t("tintedConverterDescBefore"), cls: "obsipub-tinted-desc" });
+    const galleryLink = tintedDesc.createEl("a", { text: t("tintedGalleryLink") });
     galleryLink.href = "https://tinted-theming.github.io/tinted-gallery/";
     galleryLink.target = "_blank";
     galleryLink.rel = "noopener noreferrer";
+    tintedDesc.appendText(t("tintedConverterDescAfter"));
 
     const outputDir = ".obsidian/obsipub/themes";
     const adapter = this.plugin.app.vault.adapter;
 
-    const inputRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
     let schemeInputValue = "";
-    const schemeInput = inputRow.createEl("input", { type: "text" }) as HTMLInputElement;
-    schemeInput.placeholder = "tinted8-nord, base16-default or base24-default";
-    schemeInput.style.flex = "1 1 auto";
-    schemeInput.style.fontSize = "var(--font-ui-smaller)";
-    schemeInput.addEventListener("input", () => { schemeInputValue = schemeInput.value.trim(); });
-
-    const convertBtnRow = tintedSection.createDiv({ cls: "obsipub-tinted-row" });
-    const convertBtn = convertBtnRow.createEl("button", { text: t("tintedConvertBtn"), cls: "mod-cta" });
-    convertBtn.addEventListener("click", async () => {
+    const convertSetting = new Setting(tintedSection).setName(t("tintedConvertBtn"));
+    convertSetting.addText((text) => {
+      text.setPlaceholder("tinted8-nord or tinty apply tinted8-nord");
+      text.inputEl.style.minWidth = "14em";
+      text.onChange((value) => { schemeInputValue = value.trim(); });
+    });
+    convertSetting.addButton((button) => button.setButtonText(t("tintedConvertBtn")).setCta().onClick(async () => {
       const commandMatch = schemeInputValue.match(/^(?:tinty\s+apply\s+)?([^\s]+)$/i);
       const rawId = commandMatch?.[1] || "";
       if (!rawId) {
@@ -1336,7 +1336,7 @@ class ObsipubSettingTab extends PluginSettingTab {
         console.error("Tinted convert error:", e);
         new Notice(t("tintedConvertFailed") + " — " + (e instanceof Error ? e.message : String(e)));
       }
-    });
+    }));
 
     const deleteSetting = new Setting(tintedSection).setName(t("tintedDeleteLabel"));
     let deleteSelect: HTMLSelectElement | null = null;
@@ -1385,16 +1385,9 @@ class ObsipubSettingTab extends PluginSettingTab {
         if (!confirm(confirmMsg)) return;
         try {
           const themeDirPath = outputDir + "/" + selected;
-          const deleteRecursive = async (dirPath: string) => {
-            const listing = await adapter.list(dirPath) as { files: string[]; folders: string[] };
-            for (const filePath of listing.files || []) await adapter.remove(filePath);
-            for (const subFolder of listing.folders || []) {
-              await deleteRecursive(subFolder);
-              await adapter.rmdir(subFolder, false);
-            }
-          };
-          await deleteRecursive(themeDirPath);
-          await adapter.rmdir(themeDirPath, false);
+          // DataAdapter.rmdir(path, true) handles files and nested folders;
+          // trying adapter.remove() on a directory produces EISDIR on some adapters.
+          await adapter.rmdir(themeDirPath, true);
           new Notice(t("tintedDeleted").replace("{id}", selected));
           await this.plugin.discoverCustomThemes();
           await refreshDeleteOptions();

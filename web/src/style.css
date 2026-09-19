@@ -10,6 +10,15 @@
   --danger-bg: var(--background-modifier-error, #fff1f0);
   --code-bg: var(--code-background, #eee9dc);
   --shadow: 0 18px 50px rgba(40, 33, 23, 0.09);
+  --syntax-comment: #6a737d;
+  --syntax-string: #032f62;
+  --syntax-number: #005cc5;
+  --syntax-keyword: #d73a49;
+  --syntax-function: #6f42c1;
+  --syntax-type: #22863a;
+  --syntax-property: #005cc5;
+  --syntax-operator: #d73a49;
+  --syntax-punctuation: #24292e;
   --tree-line: color-mix(in srgb, var(--text) 52%, var(--panel));
 
   font-family:
@@ -35,6 +44,15 @@
     --danger-bg: var(--background-modifier-error, rgba(180, 35, 24, 0.16));
     --code-bg: var(--code-background, #242631);
     --shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+    --syntax-comment: #8b949e;
+    --syntax-string: #79c0ff;
+    --syntax-number: #79c0ff;
+    --syntax-keyword: #ff7b72;
+    --syntax-function: #d2a8ff;
+    --syntax-type: #ffa657;
+    --syntax-property: #79c0ff;
+    --syntax-operator: #ff7b72;
+    --syntax-punctuation: #c9d1d9;
   }
 }
 
@@ -1268,6 +1286,91 @@ button {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.9em;
 }
+
+/* Syntax token colors mapped to semantic CSS variables for highlight.js output */
+body.theme-light {
+  --syntax-comment: #6a737d;
+  --syntax-string: #032f62;
+  --syntax-number: #005cc5;
+  --syntax-keyword: #d73a49;
+  --syntax-function: #6f42c1;
+  --syntax-type: #22863a;
+  --syntax-property: #005cc5;
+  --syntax-operator: #d73a49;
+  --syntax-punctuation: #24292e;
+}
+
+body.theme-dark {
+  --syntax-comment: #8b949e;
+  --syntax-string: #79c0ff;
+  --syntax-number: #79c0ff;
+  --syntax-keyword: #ff7b72;
+  --syntax-function: #d2a8ff;
+  --syntax-type: #ffa657;
+  --syntax-property: #79c0ff;
+  --syntax-operator: #ff7b72;
+  --syntax-punctuation: #c9d1d9;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst,
+.hljs-built_in,
+.hljs-literal,
+.hljs-strong,
+.hljs-emphasis,
+.hljs-title,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-attr,
+.hljs-link { color: var(--syntax-keyword, #d73a49); }
+.hljs-string,
+.hljs-section,
+.hljs-selector-class,
+.hljs-title,
+.hljs-name,
+.hljs-regexp,
+.hljs-quote,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-variable,
+.hljs-deletion,
+.hljs-doctag,
+.hljs-addition { color: var(--syntax-string, #032f62); }
+.hljs-number,
+.hljs-literal,
+.hljs-type,
+.hljs-constant,
+.hljs-symbol,
+.hljs-builtin-name { color: var(--syntax-number, #005cc5); }
+.hljs-comment,
+.hljs-doctag,
+.hljs-quote { color: var(--syntax-comment, #6a737d); }
+.hljs-title.function_,
+.hljs-function .hljs-title,
+.hljs-title,
+.hljs-function { color: var(--syntax-function, #6f42c1); }
+.hljs-type,
+.hljs-class,
+.hljs-interface,
+.hljs-struct,
+.hljs-namespace { color: var(--syntax-type, #22863a); }
+.hljs-property,
+.hljs-attr,
+.hljs-variable,
+.hljs-param,
+.hljs-tag,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo { color: var(--syntax-property, #005cc5); }
+.hljs-operator,
+.hljs-punctuation,
+.hljs-symbol,
+.hljs-subst { color: var(--syntax-operator, #d73a49); }
+.hljs-punctuation,
+.hljs-bracket,
+.hljs-tag { color: var(--syntax-punctuation, #24292e); }
 
 .markdown-rendered .code-block {
   position: relative;

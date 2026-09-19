@@ -10,6 +10,7 @@ import { isExternalUrl, isMarkdownNoteTarget, publicationBasePath, stripPublicat
 import { copyableMarkdown, stripFrontMatter } from './markdown-utils.js'
 import { parseEmphasis } from './render-inline.js'
 import { renderNestedList } from './markdown-lists.js'
+import { isSupportedLanguage, renderHighlightedLines } from './highlighting.js'
 
 const config = ref({ ready: false, index: '', theme: '', font: '', defaultTheme: 'auto', showLineNumbers: false, showArticleLineNumbers: false, fullWidth: false, tree: null })
 const auth = ref({ ready: false, protected: false, authenticated: false })
@@ -752,7 +753,20 @@ function renderCodeBlock(code, lang = '') {
     return renderDrawioBlock(code)
   }
 
+  if (isSupportedLanguage(lang)) {
+    return renderHighlightedCodeBlock(code, lang)
+  }
+
   return renderPlainCodeBlock(code, lang)
+}
+
+function renderHighlightedCodeBlock(code, lang = '') {
+  const language = lang ? ` data-language="${escapeAttr(lang)}"` : ''
+  const lineNumberClass = config.value.showLineNumbers ? ' with-line-numbers' : ''
+  const codeType = codeLanguage(lang)
+  const renderedLines = renderHighlightedLines(code, lang)
+  const languageIcon = `<span class="code-language-icon language-${escapeAttr(codeType.key)}" title="${escapeAttr(codeType.name)}" aria-label="${escapeAttr(codeType.name)}">${escapeHtml(codeType.glyph)}</span>`
+  return `<div class="code-block${lineNumberClass}"${language}>${languageIcon}<button class="copy-code-button" type="button" data-copy-code aria-label="${escapeAttr(t('copy'))}" title="${escapeAttr(t('copy'))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><div class="code-block-inner"><pre><code class="language-${escapeAttr(lang)}">${renderedLines}</code></pre></div></div>`
 }
 
 function renderPlainCodeBlock(code, lang = '') {

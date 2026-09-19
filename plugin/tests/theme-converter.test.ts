@@ -86,6 +86,31 @@ test("uses light and dark UI keys from a single Tinted8 scheme", () => {
   assert.match(css, /body\.theme-dark[\s\S]*--bg: #111111[\s\S]*--text: #eeeeee/);
 });
 
+test("emits syntax token variables derived from palette", () => {
+  const parsed = parseTaintedYAML(`scheme:
+  name: "Syntax"
+  system: "tinted8"
+palette:
+  black: "#000000"
+  white: "#ffffff"
+  blue: "#0055aa"
+  red: "#cc0000"
+  green: "#22863a"
+  gray: "#6a737d"
+  magenta: "#6f42c1"
+`);
+  const css = generateThemeCSS(parsed);
+  assert.ok(css.includes("--syntax-keyword:"));
+  assert.ok(css.includes("--syntax-string:"));
+  assert.ok(css.includes("--syntax-number:"));
+  assert.ok(css.includes("--syntax-comment:"));
+  assert.ok(css.includes("--syntax-function:"));
+  assert.ok(css.includes("--syntax-type:"));
+  assert.ok(css.includes("--syntax-property:"));
+  assert.ok(css.includes("--syntax-operator:"));
+  assert.ok(css.includes("--syntax-punctuation:"));
+});
+
 test("sanitizeSchemeId prevents traversal", () => {
   assert.equal(sanitizeSchemeId("tinted8-nord"), "tinted8-nord");
   assert.equal(sanitizeSchemeId("bad/name"), "bad-name");

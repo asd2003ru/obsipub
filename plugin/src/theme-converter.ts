@@ -29,6 +29,21 @@ function normalizeColor(value: unknown): string | undefined {
   return isSafeColorValue(color) ? color : undefined;
 }
 
+const paletteAliases: Record<string, string[]> = {
+  black: ["black", "base00"], gray: ["gray", "base03"], white: ["white", "base07"],
+  red: ["red", "base08"], orange: ["orange", "base09"], yellow: ["yellow", "base0A"],
+  green: ["green", "base0B"], cyan: ["cyan", "base0C"], blue: ["blue", "base0D"],
+  magenta: ["magenta", "base0E"], brown: ["brown", "base0F"],
+};
+
+function paletteColor(palette: Record<string, string>, key: string, fallback?: string): string | undefined {
+  for (const alias of paletteAliases[key] || [key]) {
+    const value = normalizeColor(palette[alias]);
+    if (value) return value;
+  }
+  return fallback;
+}
+
 export function parseTaintedYAML(content: string): {
   system?: string;
   name?: string;
@@ -128,45 +143,32 @@ export function generateThemeCSS(parsed: any): string {
   // Tinted8 defines the semantic UI colors separately from its terminal palette.
   // Prefer these values when present (for example chrome.background.dark and
   // highlight.text.foreground), then fall back to the eight-color palette.
-  const uiColor = (...keys: string[]): string | undefined => {
-    for (const key of keys) {
-      const value = normalizeColor(ui[key]);
-      if (value) return value;
-    }
-    return undefined;
-  };
-    const paletteAliases: Record<string, string[]> = {
-    black: ["black", "base00"], gray: ["gray", "base03"], white: ["white", "base07"],
-    red: ["red", "base08"], orange: ["orange", "base09"], yellow: ["yellow", "base0A"],
-    green: ["green", "base0B"], cyan: ["cyan", "base0C"], blue: ["blue", "base0D"],
-    magenta: ["magenta", "base0E"], brown: ["brown", "base0F"],
-    };
-    const paletteColor = (key: string, fallback?: string): string | undefined => {
-      for (const alias of paletteAliases[key] || [key]) {
-        const value = normalizeColor(palette[alias]);
+    const uiColor = (...keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const value = normalizeColor(ui[key]);
         if (value) return value;
       }
-      return fallback;
+      return undefined;
     };
     const background = mode === "light"
-      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("black") || paletteColor("white")
-      : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || paletteColor("white");
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor(palette, "black") || paletteColor(palette, "white")
+      : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor(palette, "black") || paletteColor(palette, "white");
     const foreground = mode === "light"
-      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor("white") || paletteColor("black")
-      : uiColor("chrome.foreground.dark", "foreground.dark", "foreground.normal", "highlight.text.foreground") || paletteColor("white") || paletteColor("black");
+      ? uiColor("chrome.foreground.light", "foreground.light", "foreground.normal", "highlight.text.foreground") || paletteColor(palette, "white") || paletteColor(palette, "black")
+      : uiColor("chrome.foreground.dark", "foreground.dark", "foreground.normal", "highlight.text.foreground") || paletteColor(palette, "white") || paletteColor(palette, "black");
     const panel = mode === "light"
-      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor("black") || background
-      : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor("black") || background;
-    const muted = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal") || paletteColor("gray");
-    const border = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background") || paletteColor("gray");
-    const accent = uiColor(mode === "light" ? "accent.light" : "accent.dark", "accent.normal", "highlight.text.foreground") || paletteColor("blue") || paletteColor("cyan");
-    const selection = uiColor("selection.background", "highlight.background") || paletteColor("gray_dark") || paletteColor("blue");
-    const danger = uiColor("error.foreground", "danger.foreground") || paletteColor("red") || "#dc2626";
-    const warning = uiColor("warning.foreground") || paletteColor("orange") || paletteColor("yellow") || "#d97706";
-    const success = uiColor("success.foreground") || paletteColor("green") || "#16a34a";
-    const info = uiColor("info.foreground") || paletteColor("cyan") || paletteColor("blue") || "#0891b2";
-    const question = uiColor("question.foreground") || paletteColor("magenta") || "#7c3aed";
-    const heading = uiColor("heading.foreground") || paletteColor("blue") || foreground;
+      ? uiColor("chrome.background.light", "background.light", "background.normal") || paletteColor(palette, "black") || background
+      : uiColor("chrome.background.dark", "background.dark", "background.normal") || paletteColor(palette, "black") || background;
+    const muted = uiColor(mode === "light" ? "foreground.dim.light" : "foreground.dim.dark", "foreground.dim", "foreground.normal") || paletteColor(palette, "gray");
+    const border = uiColor(mode === "light" ? "chrome.border.light" : "chrome.border.dark", "border.normal", "highlight.background") || paletteColor(palette, "gray");
+    const accent = uiColor(mode === "light" ? "accent.light" : "accent.dark", "accent.normal", "highlight.text.foreground") || paletteColor(palette, "blue") || paletteColor(palette, "cyan");
+    const selection = uiColor("selection.background", "highlight.background") || paletteColor(palette, "gray_dark") || paletteColor(palette, "blue");
+    const danger = uiColor("error.foreground", "danger.foreground") || paletteColor(palette, "red") || "#dc2626";
+    const warning = uiColor("warning.foreground") || paletteColor(palette, "orange") || paletteColor(palette, "yellow") || "#d97706";
+    const success = uiColor("success.foreground") || paletteColor(palette, "green") || "#16a34a";
+    const info = uiColor("info.foreground") || paletteColor(palette, "cyan") || paletteColor(palette, "blue") || "#0891b2";
+    const question = uiColor("question.foreground") || paletteColor(palette, "magenta") || "#7c3aed";
+    const heading = uiColor("heading.foreground") || paletteColor(palette, "blue") || foreground;
     return { palette, background, foreground, panel, muted, border, accent, selection, danger, warning, success, info, question, heading };
   };
   const lightValues = buildValues(parsed?.light || parsed, "light");
@@ -214,6 +216,15 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-callout-color-danger: ${danger};`);
       vars.push(`  --obs-callout-color-question: ${question};`);
       vars.push(`  --obs-callout-color-quote: ${info};`);
+      vars.push(`  --syntax-comment: ${paletteColor(darkValues.palette || {}, "gray", muted) || muted || "#6a737d"};`);
+      vars.push(`  --syntax-string: ${paletteColor(darkValues.palette || {}, "blue", accent) || accent || "#032f62"};`);
+      vars.push(`  --syntax-number: ${paletteColor(darkValues.palette || {}, "yellow", accent) || accent || "#005cc5"};`);
+      vars.push(`  --syntax-keyword: ${paletteColor(darkValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
+      vars.push(`  --syntax-function: ${paletteColor(darkValues.palette || {}, "magenta", accent) || accent || "#6f42c1"};`);
+      vars.push(`  --syntax-type: ${paletteColor(darkValues.palette || {}, "green", success) || success || "#22863a"};`);
+      vars.push(`  --syntax-property: ${paletteColor(darkValues.palette || {}, "blue", accent) || accent || "#005cc5"};`);
+      vars.push(`  --syntax-operator: ${paletteColor(darkValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
+      vars.push(`  --syntax-punctuation: ${foreground || muted || "#24292e"};`);
     } else {
       vars.push(`  --bg: ${background || "#f5f7fa"};`);
       vars.push(`  --panel: ${panel || "#ffffff"};`);
@@ -250,6 +261,15 @@ export function generateThemeCSS(parsed: any): string {
       vars.push(`  --obs-callout-color-danger: ${danger};`);
       vars.push(`  --obs-callout-color-question: ${question};`);
       vars.push(`  --obs-callout-color-quote: ${info};`);
+      vars.push(`  --syntax-comment: ${paletteColor(lightValues.palette || {}, "gray", muted) || muted || "#6a737d"};`);
+      vars.push(`  --syntax-string: ${paletteColor(lightValues.palette || {}, "blue", accent) || accent || "#032f62"};`);
+      vars.push(`  --syntax-number: ${paletteColor(lightValues.palette || {}, "yellow", accent) || accent || "#005cc5"};`);
+      vars.push(`  --syntax-keyword: ${paletteColor(lightValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
+      vars.push(`  --syntax-function: ${paletteColor(lightValues.palette || {}, "magenta", accent) || accent || "#6f42c1"};`);
+      vars.push(`  --syntax-type: ${paletteColor(lightValues.palette || {}, "green", success) || success || "#22863a"};`);
+      vars.push(`  --syntax-property: ${paletteColor(lightValues.palette || {}, "blue", accent) || accent || "#005cc5"};`);
+      vars.push(`  --syntax-operator: ${paletteColor(lightValues.palette || {}, "red", danger) || danger || "#d73a49"};`);
+      vars.push(`  --syntax-punctuation: ${foreground || muted || "#24292e"};`);
     }
     return vars.join("\n");
   };
